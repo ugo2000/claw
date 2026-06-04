@@ -1,0 +1,28 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+npm-debug.log*
+.env
+.env.*
+!.env.example
+
+# Capacitor
+android/
+ios/
+electron/
+
+# Build output
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db

@@ -1,0 +1,47 @@
+/* ===== Tailwind CSS v3 ===== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Custom Design Tokens for 外贸猎客 ===== */
+:root {
+  --color-primary: #1a56db;
+  --color-primary-light: #3b82f6;
+  --color-primary-dark: #1e40af;
+  --color-accent: #f59e0b;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+/* ===== Global Reset ===== */
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font-sans);
+  background-color: #f3f4f6;
+  color: #1f2937;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: #fff;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ===== Safe Area (notch) support ===== */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

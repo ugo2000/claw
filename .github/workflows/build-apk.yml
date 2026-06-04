@@ -1,0 +1,82 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x ./android/gradlew
+
+      - name: Build Debug APK
+        working-directory: ./android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Build Release APK
+        working-directory: ./android
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          # 如果有签名密钥，在这里配置
+          # See: https://github.com/Softcatala/recutils-android/blob/master/.github/workflows/build.yml
+          ORG_GRADLE_PROJECT_RELEASE_STORE_FILE: ${{ secrets.ANDROID_KEYSTORE }}
+          ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload Release APK (unsigned)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 90
+
+      # 可选：自动创建 GitHub Release（需要 tag 触发）
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
