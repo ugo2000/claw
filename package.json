@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:android": "npx cap add android && npx cap sync android && bash scripts/install-icons.sh"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
