@@ -16,27 +16,30 @@
         <p class="credits-label">{{ $t('home.creditsBalance') }}</p>
         <p class="credits-value">{{ credits.balance.toLocaleString() }} <small>{{ $t('home.credits') }}</small></p>
       </div>
-      <router-link to="/profile" class="recharge-btn">
+      <button class="recharge-btn" @click="$router.push('/profile')">
         {{ $t('profile.rechargeTitle') }} +
-      </router-link>
+      </button>
     </div>
 
     <!-- Quick Actions -->
     <section class="section">
       <h2 class="section-title">{{ $t('home.quickActions') }}</h2>
       <div class="quick-actions">
-        <router-link to="/search" class="action-card blue">
+        <button class="action-card blue" @click="$router.push('/search')">
           <div class="action-icon">&#128269;</div>
           <span>{{ $t('home.searchLeads') }}</span>
-        </router-link>
-        <router-link to="/email" class="action-card green">
+          <svg class="arrow-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </button>
+        <button class="action-card green" @click="$router.push('/email')">
           <div class="action-icon">&#9993;</div>
           <span>{{ $t('home.generateEmail') }}</span>
-        </router-link>
-        <router-link to="/clients" class="action-card orange">
+          <svg class="arrow-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </button>
+        <button class="action-card orange" @click="$router.push('/clients')">
           <div class="action-icon">&#128101;</div>
           <span>{{ $t('home.myClients') }}</span>
-        </router-link>
+          <svg class="arrow-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </button>
       </div>
     </section>
 
@@ -144,16 +147,19 @@ const todaySaved = computed(() =>
   color: white;
   padding: 8px 16px;
   border-radius: 8px;
+  border: none;
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
+  cursor: pointer;
 }
+.recharge-btn:hover { background: rgba(255,255,255,0.35); }
 
 /* Sections */
 .section { margin-bottom: 24px; }
 .section-title { font-size: 17px; font-weight: 700; color: #1f2937; margin: 0 0 12px; }
 
-/* Quick Actions */
+/* Quick Actions - changed from router-link to button for reliable click handling */
 .quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .action-card {
   background: white;
@@ -162,11 +168,24 @@ const todaySaved = computed(() =>
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-decoration: none;
+  justify-content: center;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
+.action-card:active { transform: scale(0.97); }
+.action-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 .action-icon { font-size: 28px; margin-bottom: 6px; }
 .action-card span { font-size: 12px; color: #374151; font-weight: 500; }
+.arrow-icon {
+  position: absolute;
+  right: 8px; top: 50%;
+  width: 12px; height: 12px;
+  opacity: 0.3;
+  transform: translateY(-50%);
+}
 
 /* Stats */
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
