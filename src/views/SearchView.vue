@@ -54,9 +54,12 @@
         <p>AI {{ $t('home.searchLeads').toLowerCase() }}...</p>
       </div>
       <template v-else-if="results.length">
-        <p class="result-count">
-          {{ $t('search.resultCount', { count: results.length, query: lastQuery }) }}
-        </p>
+        <div class="result-header-bar">
+          <p class="result-count">
+            {{ $t('search.resultCount', { count: results.length, query: lastQuery }) }}
+          </p>
+          <button v-if="results.length" class="clear-results" @click="clearResults">&times; Clear</button>
+        </div>
         <div class="results-list">
           <div v-for="(item, index) in results" :key="index" class="result-card">
             <div class="result-header">
@@ -98,10 +101,11 @@
                   {{ isAnalyzing === item.company ? $t('search.analyzing') : $t('search.aiAnalyze') }}
                 </button>
                 <button
-                  class="save-btn"
+                  :class="['save-btn', { saved: item._saved }]"
                   @click.stop="saveClient(item)"
+                  :disabled="item._saved"
                 >
-                  {{ item._saved ? $t('search.savedBtn') : $t('search.saveBtn') }}
+                  {{ item._saved ? '\u2705 Saved' : $t('search.saveBtn') }}
                 </button>
                 <router-link
                   :to="{ path: '/email', query: { company: item.company, industry: item.industry } }"
@@ -142,18 +146,19 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { useCreditsStore } from '../stores/credits'
+import { useSearchStore } from '../stores/search'
 import { generateLeads as aiGenerateLeads, analyzeClient as aiAnalyzeClient } from '../services/ai'
-import { copyToClipboard, formatRelativeTime } from '../utils/helpers'
-import { validateLeads, safeHref } from '../utils/validators'
+import { copyToClipboard } from '../utils/helpers'
+import { validateLeads } from '../utils/validators'
 
 const { t } = useI18n()
-const router = useRouter()
 const credits = useCreditsStore()
+const searchStore = useSearchStore()
 
+// Bind store refs to template
 const keyword = ref('')
 const region = ref('')
 const industry = ref('')
@@ -178,6 +183,19 @@ function tRegion(code) {
   return map[code] || code
 }
 
+// Load persisted state on mount
+onMounted(() => {
+  keyword.value = searchStore.keyword
+  region.value = searchStore.region
+  industry.value = searchStore.industry
+  hasSearched.value = searchStore.hasSearched
+  results.value = searchStore.results
+  lastQuery.value = searchStore.lastQuery
+
+  // Re-check saved status against current localStorage (may have changed)
+  results.value = searchStore.markSavedStatus(results.value)
+})
+
 async function doSearch() {
   if (!keyword.value.trim()) return
 
@@ -193,6 +211,11 @@ async function doSearch() {
   results.value = []
   lastQuery.value = keyword.value.trim()
 
+  // Sync form values to store
+  searchStore.keyword = keyword.value
+  searchStore.region = region.value
+  searchStore.industry = industry.value
+
   try {
     const result = await aiGenerateLeads({
       keyword: keyword.value.trim(),
@@ -200,7 +223,9 @@ async function doSearch() {
       industry: industry.value,
       count: 8,
     })
-    results.value = validateLeads(result.leads).map(l => ({ ...l, _saved: false }))
+    const validated = validateLeads(result.leads).map(l => ({ ...l, _saved: false }))
+    results.value = searchStore.markSavedStatus(validated)
+    searchStore.setResults(validated, keyword.value.trim())
   } catch (err) {
     console.error('Search failed:', err)
     alert(err.message || 'Search failed')
@@ -214,13 +239,20 @@ async function doSearch() {
   isSearching.value = false
 }
 
+function clearResults() {
+  results.value = []
+  hasSearched.value = false
+  lastQuery.value = ''
+  searchStore.clear()
+}
+
 function saveClient(item) {
   if (item._saved) return
   const saved = JSON.parse(localStorage.getItem('claw_saved_clients') || '[]')
   saved.unshift({ ...item, savedAt: Date.now(), _saved: true })
   localStorage.setItem('claw_saved_clients', JSON.stringify(saved.slice(0, 200)))
   item._saved = true
-  alert(t('search.savedBtn'))
+  searchStore.updateItemSaved(item.company)
 }
 
 async function analyzeClient(item) {
@@ -308,7 +340,12 @@ async function copyAnalysis() {
   margin: 0 auto 12px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.result-count { font-size: 13px; color: #6b7280; margin: 0 0 12px; }
+.result-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.result-count { font-size: 13px; color: #6b7280; margin: 0; }
+.clear-results {
+  background: none; border: none; color: #9ca3af; font-size: 13px; cursor: pointer; padding: 4px 8px;
+}
+.clear-results:hover { color: #ef4444; }
 .results-list { display: flex; flex-direction: column; gap: 10px; }
 .result-card {
   background: white; border-radius: 12px;
@@ -355,7 +392,12 @@ async function copyAnalysis() {
 .save-btn {
   background: #1a56db; color: white; border: none;
   border-radius: 6px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+  transition: all 0.2s;
 }
+.save-btn.saved {
+  background: #d1d5db; color: #6b7280; cursor: not-allowed;
+}
+.save-btn:disabled { cursor: not-allowed; }
 .email-btn { text-decoration: none; }
 .email-btn-inner {
   background: #10b981; color: white; border: none;
