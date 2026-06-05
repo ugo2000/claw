@@ -248,9 +248,32 @@ function clearResults() {
 
 function saveClient(item) {
   if (item._saved) return
+  // Save to unified 'claw_clients' so it shows up in My Clients page
+  const clients = JSON.parse(localStorage.getItem('claw_clients') || '[]')
+  const clientEntry = {
+    company: item.company,
+    contactName: item.contactName || '',
+    email: item.email || '',
+    phone: item.phone || '',
+    country: item.country || item.region || '',
+    website: item.website || '',
+    notes: item.desc ? `Source: Search | ${item.desc}` : 'Source: Lead Search',
+    status: 'new',
+    industry: item.industry || '',
+    savedAt: Date.now(),
+  }
+  // Avoid duplicates
+  const exists = clients.some(c => c.company === item.company && c.email === item.email)
+  if (!exists) {
+    clients.unshift(clientEntry)
+    localStorage.setItem('claw_clients', JSON.stringify(clients.slice(0, 500)))
+  }
+  // Also keep claw_saved_clients for search-page status tracking
   const saved = JSON.parse(localStorage.getItem('claw_saved_clients') || '[]')
-  saved.unshift({ ...item, savedAt: Date.now(), _saved: true })
-  localStorage.setItem('claw_saved_clients', JSON.stringify(saved.slice(0, 200)))
+  if (!exists) {
+    saved.unshift({ ...item, savedAt: Date.now(), _saved: true })
+    localStorage.setItem('claw_saved_clients', JSON.stringify(saved.slice(0, 200)))
+  }
   item._saved = true
   searchStore.updateItemSaved(item.company)
 }
