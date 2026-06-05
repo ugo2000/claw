@@ -16,7 +16,7 @@
         <p class="credits-label">{{ $t('home.creditsBalance') }}</p>
         <p class="credits-value">{{ credits.balance.toLocaleString() }} <small>{{ $t('home.credits') }}</small></p>
       </div>
-      <button class="recharge-btn" @click="$router.push('/profile')">
+      <button class="recharge-btn" @click="navigateTo('/profile')">
         {{ $t('profile.rechargeTitle') }} +
       </button>
     </div>
@@ -25,17 +25,17 @@
     <section class="section">
       <h2 class="section-title">{{ $t('home.quickActions') }}</h2>
       <div class="quick-actions">
-        <button class="action-card blue" @click="$router.push('/search')">
+        <button class="action-card blue" @click="navigateTo('/search')">
           <div class="action-icon">&#128269;</div>
           <span>{{ $t('home.searchLeads') }}</span>
           <svg class="arrow-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
         </button>
-        <button class="action-card green" @click="$router.push('/email')">
+        <button class="action-card green" @click="navigateTo('/email')">
           <div class="action-icon">&#9993;</div>
           <span>{{ $t('home.generateEmail') }}</span>
           <svg class="arrow-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
         </button>
-        <button class="action-card orange" @click="$router.push('/clients')">
+        <button class="action-card orange" @click="navigateTo('/clients')">
           <div class="action-icon">&#128101;</div>
           <span>{{ $t('home.myClients') }}</span>
           <svg class="arrow-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
@@ -86,13 +86,19 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useCreditsStore } from '../stores/credits'
 import { formatRelativeTime } from '../utils/helpers'
 import { getStoredUser } from '../services/auth'
 
+const router = useRouter()
 const credits = useCreditsStore()
 const user = getStoredUser()
 const userName = computed(() => (user && user.name) ? user.name.split(' ')[0] : 'User')
+
+function navigateTo(path) {
+  router.push(path)
+}
 
 const recentLogs = computed(() => credits.usageLogs.slice(0, 5))
 
@@ -159,7 +165,7 @@ const todaySaved = computed(() =>
 .section { margin-bottom: 24px; }
 .section-title { font-size: 17px; font-weight: 700; color: #1f2937; margin: 0 0 12px; }
 
-/* Quick Actions - changed from router-link to button for reliable click handling */
+/* Quick Actions - reliable click handling for Capacitor WebView */
 .quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .action-card {
   background: white;
@@ -174,6 +180,10 @@ const todaySaved = computed(() =>
   cursor: pointer;
   position: relative;
   transition: transform 0.15s, box-shadow 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  z-index: 1;
 }
 .action-card:active { transform: scale(0.97); }
 .action-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
