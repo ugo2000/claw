@@ -1,0 +1,36 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e3a5f"/>
+    </linearGradient>
+    <linearGradient id="clawG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="accentG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#d97706"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="42" fill="url(#bgG)"/>
+  <!-- Globe -->
+  <circle cx="100" cy="105" r="58" fill="none" stroke="#334155" stroke-width="2.5" opacity="0.55"/>
+  <ellipse cx="100" cy="105" rx="28" ry="58" fill="none" stroke="#334155" stroke-width="1.8" opacity="0.4"/>
+  <line x1="42" y1="105" x2="158" y2="105" stroke="#334155" stroke-width="1.8" opacity="0.35"/>
+  <line x1="100" y1="47" x2="100" y2="163" stroke="#334155" stroke-width="1.8" opacity="0.35"/>
+  <!-- Claw -->
+  <g transform="translate(100,78)">
+    <ellipse cx="0" cy="-8" rx="18" ry="14" fill="url(#clawG)" opacity="0.92"/>
+    <path d="M-12,-12 Q-32,-30 -38,-52 Q-40,-60 -34,-62 Q-28,-60 -24,-48 Q-18,-30 -8,-16Z" fill="url(#clawG)"/>
+    <path d="M-5,-18 Q-14,-38 -14,-58 Q-13,-66 -7,-66 Q-2,-64 -2,-52 Q-2,-34 0,-20Z" fill="url(#clawG)"/>
+    <path d="M4,-18 Q6,-42 12,-64 Q15,-72 22,-70 Q27,-66 22,-52 Q16,-34 8,-18Z" fill="url(#clawG)"/>
+    <path d="M12,-12 Q28,-26 40,-42 Q46,-50 42,-56 Q36,-54 30,-42 Q22,-26 14,-14Z" fill="url(#clawG)"/>
+    <path d="M-8,-20 Q-18,-35 -22,-48" stroke="#60a5fa" stroke-width="2" fill="none" opacity="0.45" stroke-linecap="round"/>
+    <path d="M6,-22 Q10,-38 14,-52" stroke="#60a5fa" stroke-width="2" fill="none" opacity="0.35" stroke-linecap="round"/>
+  </g>
+  <!-- Spark -->
+  <circle cx="148" cy="56" r="5.5" fill="url(#accentG)"/>
+  <circle cx="153" cy="67" r="3.2" fill="#fcd34d" opacity="0.55"/>
+  <path d="M130,47 Q156,36 168,55" stroke="#475569" stroke-width="1.6" fill="none" opacity="0.5" stroke-linecap="round"/>
+</svg>
