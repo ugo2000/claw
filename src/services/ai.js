@@ -245,10 +245,14 @@ ${myGoal ? `My reply goal: ${myGoal}` : ''}`,
  * @returns {Promise<{leads: Array, usage: Object}>}
  */
 export async function generateLeads(params) {
-  const { keyword, region = '', industry = '', count = 8 } = params
+  const { keyword, region = '', industry = '', count = 10, exclude = [] } = params
 
   const regionHint = region ? `Target region: ${region}. ` : ''
   const industryHint = industry ? `Target industry: ${industry}. ` : ''
+  // Build exclusion hint for pagination
+  const excludeHint = exclude.length > 0
+    ? `\n\nIMPORTANT — Do NOT include any of these companies (already shown): ${exclude.join(', ')}`
+    : ''
 
   const messages = [
     {
@@ -280,7 +284,7 @@ Rules:
 - website MUST start with https:// (e.g. https://www.companyname.com or https://companyname.com)
 - email should look realistic, avoid generic placeholders like info@domain.com when possible
 - If the query is vague, make reasonable assumptions
-- OUTPUT ONLY THE JSON, nothing else`,
+- OUTPUT ONLY THE JSON, nothing else${excludeHint}`,
     },
     {
       role: 'user',

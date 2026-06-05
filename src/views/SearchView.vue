@@ -44,24 +44,24 @@
       >
         {{ isSearching ? $t('search.analyzing') + '...' : $t('search.searchBtn') }}
       </button>
-      <p class="cost-hint">{{ $t('search.costInfo') }}</p>
+      <p class="cost-hint">{{ $t('search.costInfo') }} (2 {{ $t('home.credits') }}/page)</p>
     </div>
 
     <!-- Results -->
     <div v-if="hasSearched" class="results-section">
-      <div v-if="isSearching" class="loading-state">
+      <div v-if="isSearching && !isLoadingNext" class="loading-state">
         <div class="spinner"></div>
         <p>AI {{ $t('home.searchLeads').toLowerCase() }}...</p>
       </div>
       <template v-else-if="results.length">
         <div class="result-header-bar">
           <p class="result-count">
-            {{ $t('search.resultCount', { count: results.length, query: lastQuery }) }}
+            {{ searchStore.allResults.length }} results | Page {{ searchStore.currentPage + 1 }} of {{ searchStore.totalPages }}
           </p>
           <button v-if="results.length" class="clear-results" @click="clearResults">&times; Clear</button>
         </div>
         <div class="results-list">
-          <div v-for="(item, index) in results" :key="index" class="result-card">
+          <div v-for="(item, index) in results" :key="item.company + '-' + index" class="result-card">
             <div class="result-header">
               <h3>{{ item.company }}</h3>
               <span :class="['region-badge', `badge-${item.region || 'na'}`]">
@@ -119,8 +119,33 @@
             </div>
           </div>
         </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-bar">
+          <button
+            class="page-btn prev"
+            :disabled="searchStore.currentPage <= 0"
+            @click="prevPage"
+          >
+            &#9664; Prev
+          </button>
+          <span class="page-info">
+            Page <strong>{{ searchStore.currentPage + 1 }}</strong> / {{ searchStore.totalPages }}
+            <span v-if="searchStore.allResults.length > 0" class="total-info">
+              ({{ searchStore.allResults.length }} total)
+            </span>
+          </span>
+          <button
+            class="page-btn next"
+            :disabled="isSearching || isLoadingNext"
+            @click="nextPage"
+          >
+            Next &#9654;
+            <span v-if="isLoadingNext" class="mini-spinner"></span>
+          </button>
+        </div>
       </template>
-      <div v-else class="empty-results">
+      <div v-else-if="!isSearching && !isLoadingNext" class="empty-results">
         <p>&#128533; {{ $t('search.noResults') }}</p>
       </div>
     </div>
@@ -164,6 +189,7 @@ const region = ref('')
 const industry = ref('')
 const hasSearched = ref(false)
 const isSearching = ref(false)
+const isLoadingNext = ref(false)   // loading next page specifically
 const results = ref([])
 const lastQuery = ref('')
 const isAnalyzing = ref('')
@@ -199,7 +225,7 @@ onMounted(() => {
 async function doSearch() {
   if (!keyword.value.trim()) return
 
-  // Deduct credits
+  // Deduct credits (2 per page)
   const costResult = credits.deduct(2, `Lead Search - ${keyword.value}`)
   if (!costResult.success) {
     alert(costResult.message)
@@ -207,8 +233,8 @@ async function doSearch() {
   }
 
   isSearching.value = true
+  isLoadingNext.value = false
   hasSearched.value = true
-  results.value = []
   lastQuery.value = keyword.value.trim()
 
   // Sync form values to store
@@ -221,11 +247,14 @@ async function doSearch() {
       keyword: keyword.value.trim(),
       region: region.value,
       industry: industry.value,
-      count: 8,
+      count: searchStore.pageSize,
     })
     const validated = validateLeads(result.leads).map(l => ({ ...l, _saved: false }))
+    // Set as first page — replaces all previous results
     results.value = searchStore.markSavedStatus(validated)
     searchStore.setResults(validated, keyword.value.trim())
+    // Re-read from store to get paginated slice
+    results.value = searchStore.results
   } catch (err) {
     console.error('Search failed:', err)
     alert(err.message || 'Search failed')
@@ -237,6 +266,63 @@ async function doSearch() {
   }
 
   isSearching.value = false
+}
+
+// Load next page — re-search with exclusion list
+async function nextPage() {
+  if (isSearching.value || isLoadingNext.value) return
+  const nextPg = searchStore.currentPage + 1
+  // If we already have data for next page (e.g., appended earlier), just navigate
+  if (nextPg * searchStore.pageSize < searchStore.allResults.length) {
+    searchStore.goToPage(nextPg)
+    results.value = searchStore.results
+    return
+  }
+
+  // Need new AI search for more results
+  const costResult = credits.deduct(2, `Lead Search (pg.${nextPg + 1}) - ${keyword.value}`)
+  if (!costResult.success) {
+    alert(costResult.message)
+    return
+  }
+
+  isLoadingNext.value = true
+  try {
+    const excludeList = searchStore.excludedCompanies
+    const result = await aiGenerateLeads({
+      keyword: keyword.value.trim(),
+      region: region.value,
+      industry: industry.value,
+      count: searchStore.pageSize,
+      exclude: excludeList,  // Pass excluded companies to avoid duplicates
+    })
+    const validated = validateLeads(result.leads).map(l => ({ ...l, _saved: false }))
+    const addedCount = searchStore.appendPageResults(validated)
+    results.value = searchStore.results
+
+    if (addedCount === 0) {
+      alert('No new unique leads found. Try a different search term.')
+      // Refund
+      credits.balance += 2
+      credits.totalUsed -= 2
+    }
+  } catch (err) {
+    console.error('Next page search failed:', err)
+    alert(err.message || 'Search failed')
+    // Refund
+    credits.balance += 2
+    credits.totalUsed -= 2
+    const idx = credits.usageLogs.findIndex(l => l.action.includes(`Lead Search (pg.`))
+    if (idx >= 0) credits.usageLogs.splice(idx, 1)
+  }
+
+  isLoadingNext.value = false
+}
+
+function prevPage() {
+  if (searchStore.currentPage <= 0) return
+  searchStore.goToPage(searchStore.currentPage - 1)
+  results.value = searchStore.results
 }
 
 function clearResults() {
@@ -426,6 +512,37 @@ async function copyAnalysis() {
   background: #10b981; color: white; border: none;
   border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;
 }
+
+/* Pagination */
+.pagination-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 16px; padding: 12px 4px;
+  background: white; border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.page-btn {
+  padding: 8px 16px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+  background: white; font-size: 13px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: all 0.2s; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.page-btn:not(:disabled):active { background: #f3f4f6; }
+.page-btn:not(:disabled):hover { border-color: #1a56db; color: #1a56db; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-btn.next { background: #1a56db; color: white; border-color: #1a56db; }
+.page-btn.next:disabled { background: #d1d5db; border-color: #d1d5db; }
+.page-info { font-size: 13px; color: #6b7280; text-align: center; }
+.page-info strong { color: #1f2937; }
+.total-info { font-size: 11px; color: #9ca3af; }
+.mini-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white; border-radius: 50%;
+  animation: spin 0.6s linear infinite; display: inline-block;
+  vertical-align: middle;
+}
+
 .empty-results { text-align: center; padding: 32px; color: #9ca3af; }
 
 /* Modal */

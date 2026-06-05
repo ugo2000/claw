@@ -120,12 +120,12 @@ function switchLanguage(lang) {
   setLanguage(lang)
 }
 
-// Recharge packages
+// Recharge packages — keys must match credits.js getPricePerCredit()
 const packages = {
-  starter:   { label: 'Starter Pack',   price: 9.9,   credits: 100,   popular: false },
-  standard:  { label: 'Standard Pack',  price: 49,    credits: 600,   popular: false },
+  trial:     { label: 'Starter Pack',   price: 9.9,   credits: 100,   popular: false },
+  basic:     { label: 'Standard Pack',  price: 49,    credits: 600,   popular: false },
   pro:       { label: 'Pro Pack',       price: 99,    credits: 1500,  popular: true },
-  enterprise:{ label: 'Enterprise Pack',price: 199,   credits: 3500,  popular: false },
+  premium:   { label: 'Enterprise Pack',price: 199,   credits: 3500,  popular: false },
 }
 
 const showPayment = ref(false)

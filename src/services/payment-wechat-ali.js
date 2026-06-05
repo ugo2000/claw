@@ -47,7 +47,7 @@ function saveOrders(orders) {
 
 /**
  * 创建支付订单
- * @param {string} packageKey - starter/standard/pro/enterprise
+ * @param {string} packageKey - trial/basic/pro/premium (must match credits.js getPricePerCredit)
  * @param {object} pkg - 套餐信息 { price, credits }
  * @param {string} method - 'wechat' | 'alipay'
  * @param {object} user - 当前用户

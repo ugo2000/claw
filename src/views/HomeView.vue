@@ -85,7 +85,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCreditsStore } from '../stores/credits'
 import { formatRelativeTime } from '../utils/helpers'
@@ -102,19 +102,39 @@ function navigateTo(path) {
 
 const recentLogs = computed(() => credits.usageLogs.slice(0, 5))
 
-// Today's stats
+// Today's stats — read from actual record storage for accuracy
 const todayStart = new Date()
 todayStart.setHours(0, 0, 0, 0)
 
-const todayEmails = computed(() =>
-  credits.usageLogs.filter(l => l.action.includes('Email') && l.time >= todayStart.getTime()).length
-)
+// Emails: count from email history localStorage (matches EmailView display)
+function loadTodayEmailCount() {
+  try {
+    const hist = JSON.parse(localStorage.getItem('claw_email_history') || '[]')
+    return hist.filter(h => h.time >= todayStart.getTime()).length
+  } catch { return 0 }
+}
+const todayEmails = ref(loadTodayEmailCount())
+
+// Clients found: from usage logs (search operations)
 const todayClients = computed(() =>
   credits.usageLogs.filter(l => (l.action.includes('Client') || l.action.includes('Lead')) && l.time >= todayStart.getTime()).length
 )
-const todaySaved = computed(() =>
-  credits.usageLogs.filter(l => l.action.includes('Save') && l.time >= todayStart.getTime()).length
-)
+// Clients saved: from actual saved clients
+function loadTodaySavedCount() {
+  try {
+    const clients = JSON.parse(localStorage.getItem('claw_clients') || '[]')
+    return clients.filter(c => c.savedAt && c.savedAt >= todayStart.getTime()).length
+  } catch { return 0 }
+}
+const todaySaved = ref(loadTodaySavedCount())
+
+// Refresh counts when page is shown (returning from other pages)
+function refreshStats() {
+  todayEmails.value = loadTodayEmailCount()
+  todaySaved.value = loadTodaySavedCount()
+}
+onMounted(refreshStats)
+onActivated(refreshStats)
 </script>
 
 <style scoped>
