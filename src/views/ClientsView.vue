@@ -180,11 +180,11 @@ const websiteError = ref('')
 const { t } = { t: (k) => k }
 
 const filterOptions = computed(() => [
-  { label: t('clients.filterAll'), value: 'all' },
-  { label: t('clients.filterNew'), value: 'new' },
-  { label: t('clients.filterContacted'), value: 'contacted' },
-  { label: t('clients.filterReplied'), value: 'replied' },
-  { label: t('clients.filterDeal'), value: 'deal' },
+  { label: 'All', value: 'all' },
+  { label: 'New', value: 'new' },
+  { label: 'Contacted', value: 'contacted' },
+  { label: 'Replied', value: 'replied' },
+  { label: 'Closed', value: 'deal' },
 ])
 
 const filteredClients = computed(() => {
@@ -193,7 +193,7 @@ const filteredClients = computed(() => {
 })
 
 function statusLabel(status) {
-  const map = { new: 'New', contacted: 'Contacted', replied: 'Replied', deal: 'Deal Closed' }
+  const map = { new: 'New', contacted: 'Sent', replied: 'Replied', deal: 'Closed' }
   return map[status] || status
 }
 
