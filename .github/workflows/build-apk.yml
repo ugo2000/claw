@@ -5,7 +5,6 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
-  # 允许手动触发
   workflow_dispatch:
 
 jobs:
@@ -41,6 +40,58 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Install Pillow for icon generation
+        run: pip install pillow -q
+
+      - name: Generate & install icons
+        run: |
+          python3 << 'EOF'
+          from PIL import Image
+          import os, shutil
+
+          SRC = "res/icons-android/icon-1024.png"
+          if not os.path.exists(SRC):
+              # fallback to any png in icons dir
+              for f in os.listdir("res/icons-android"):
+                  if f.endswith(".png") and "1024" in f:
+                      SRC = f"res/icons-android/{f}"
+                      break
+              else:
+                  # use ic_launcher as source
+                  SRC = "res/icons-android/ic_launcher.png"
+
+          src = Image.open(SRC).convert("RGBA")
+          src = src.resize((1024, 1024), Image.LANCZOS)
+          print(f"Icon source: {SRC} {src.size}")
+
+          # Android mipmap sizes -> target directories
+          TARGETS = [
+              ("res/icons-android/mipmap-mdpi.png",     "android/app/src/main/res/mipmap-mdpi",    48,  "ic_launcher.png"),
+              ("res/icons-android/mipmap-hdpi.png",     "android/app/src/main/res/mipmap-hdpi",    72,  "ic_launcher.png"),
+              ("res/icons-android/mipmap-xhdpi.png",    "android/app/src/main/res/mipmap-xhdpi",   96,  "ic_launcher.png"),
+              ("res/icons-android/mipmap-xxhdpi.png",   "android/app/src/main/res/mipmap-xxhdpi",  144, "ic_launcher.png"),
+              ("res/icons-android/mipmap-xxxhdpi.png",  "android/app/src/main/res/mipmap-xxxhdpi", 192, "ic_launcher.png"),
+          ]
+
+          for _src, dest_dir, size, dest_name in TARGETS:
+              os.makedirs(dest_dir, exist_ok=True)
+              icon = src.resize((size, size), Image.LANCZOS)
+              # Save as RGB PNG (no alpha channel issues)
+              bg = Image.new("RGB", (size, size), (26, 86, 219))
+              if icon.mode == "RGBA":
+                  bg.paste(icon, mask=icon.split()[3])
+              else:
+                  bg.paste(icon)
+              dest_path = os.path.join(dest_dir, dest_name)
+              bg.save(dest_path, "PNG")
+              print(f"  {dest_dir}/{dest_name} ({size}x{size})")
+              # Also copy round icon
+              bg.save(os.path.join(dest_dir, "ic_launcher_round.png"), "PNG")
+              bg.save(os.path.join(dest_dir, "ic_launcher_foreground.png"), "PNG")
+
+          print("All icons installed!")
+          EOF
+
       - name: Make gradlew executable
         run: chmod +x ./android/gradlew
 
@@ -51,13 +102,6 @@ jobs:
       - name: Build Release APK
         working-directory: ./android
         run: ./gradlew assembleRelease --no-daemon
-        env:
-          # 如果有签名密钥，在这里配置
-          # See: https://github.com/Softcatala/recutils-android/blob/master/.github/workflows/build.yml
-          ORG_GRADLE_PROJECT_RELEASE_STORE_FILE: ${{ secrets.ANDROID_KEYSTORE }}
-          ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -73,7 +117,6 @@ jobs:
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           retention-days: 90
 
-      # 可选：自动创建 GitHub Release（需要 tag 触发）
       - name: Create Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

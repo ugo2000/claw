@@ -6,20 +6,20 @@
 const PAYMENT_CONFIG = {
   wechat: {
     enabled: true,
-    qrImageUrl: '/wechat-qr.png',   // 把你的微信收款码放到 public/ 下
-    wechatId: 'your_wechat_id',      // 微信号（用户无法扫码时手动添加）
-    payeeName: 'Claw 客服',          // 收款人姓名
+    qrImageUrl: '/wechat-qr.png',   // 微信收款码（已放在 public/wechat-qr.png）
+    wechatId: '',                    // 留空 = 不显示微信号文字
+    payeeName: '贸虾',
   },
   alipay: {
     enabled: true,
-    qrImageUrl: '/alipay-qr.png',   // 把你的支付宝收款码放到 public/ 下
-    alipayId: 'your_alipay_id',     // 支付宝账号
-    payeeName: 'Claw 客服',
+    qrImageUrl: '/alipay-qr.png',   // 支付宝收款码（已放在 public/alipay-qr.png）
+    alipayId: '',                    // 留空 = 不显示账号文字
+    payeeName: '贸虾',
   },
-  // 自动审核：true = 用户上传截图后自动到账（适合小额）
-  //          false = 需要你手动审核
-  autoApprove: false,
-  adminEmail: 'admin@yourdomain.com',
+  // autoApprove: false = 用户上传截图后等待人工审核后到账
+  // autoApprove: true  = 用户上传截图后立即到账（小额信任模式）
+  autoApprove: true,
+  adminEmail: 'admin@tradeclaw.com',
 }
 
 const ORDERS_KEY = 'claw_payment_orders'
