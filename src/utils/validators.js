@@ -182,7 +182,7 @@ export function safeHref(type, value) {
 }
 
 /**
- * 批量校验 lead 数据中的 website 和 email 字段
+ * 批量校验 lead 数据中的 website 和 email 字段（格式校验，同步）
  * @param {Array} leads - AI 生成的 leads 数组
  * @returns {Array} - 标记了校验状态的 leads 数组
  */
@@ -215,4 +215,141 @@ export function validateLeads(leads) {
 
     return result
   })
+}
+
+/**
+ * 异步验证网站是否可访问（前端 favicon 探测，无 CORS 问题）
+ * 对每个 lead，尝试加载其 favicon，超时 6 秒
+ * @param {Array} leads - validateLeads() 处理后的 leads 数组
+ * @returns {Promise<Array>} - 标记了 _websiteReachable 的 leads 数组
+ */
+export function verifyWebsites(leads) {
+  if (!Array.isArray(leads)) return Promise.resolve([])
+
+  const tasks = leads.map(lead => {
+    return new Promise(resolve => {
+      const result = { ...lead }
+      // 如果没有 website 或格式无效，直接返回
+      if (!lead._websiteValid || !lead._websiteNormalized) {
+        result._websiteReachable = false
+        return resolve(result)
+      }
+
+      let hostname = ''
+      try {
+        hostname = new URL(lead._websiteNormalized).hostname
+      } catch {
+        result._websiteReachable = false
+        return resolve(result)
+      }
+
+      // 用 Google favicon 服务探测（无 CORS 限制，且能间接验证域名是否存在）
+      const img = new Image()
+      const timeout = setTimeout(() => {
+        img.src = ''
+        result._websiteReachable = false
+        resolve(result)
+      }, 6000)
+
+      img.onload = () => {
+        clearTimeout(timeout)
+        result._websiteReachable = true
+        resolve(result)
+      }
+
+      img.onerror = () => {
+        clearTimeout(timeout)
+        // onerror 也可能是 404，但域名存在，所以再试一个备用方案
+        // 用另一个公共 favicon 服务二次确认
+        const img2 = new Image()
+        const timeout2 = setTimeout(() => {
+          result._websiteReachable = false
+          resolve(result)
+        }, 6000)
+
+        img2.onload = () => {
+          clearTimeout(timeout2)
+          result._websiteReachable = true
+          resolve(result)
+        }
+        img2.onerror = () => {
+          clearTimeout(timeout2)
+          result._websiteReachable = false
+          resolve(result)
+        }
+        // 备用：icon.horse
+        img2.src = `https://icon.horse/icon/${hostname}`
+      }
+
+      // 主探测：Google favicon 服务
+      img.src = `https://www.google.com/s2/favicons?domain=${hostname}&sz=16`
+    })
+  })
+
+  return Promise.all(tasks)
+}
+
+/**
+ * 异步验证邮箱域名是否有 MX 记录（能收邮件）
+ * 使用 Google DNS over HTTPS API（免费，无 API Key 需求）
+ * @param {Array} leads - leads 数组
+ * @returns {Promise<Array>} - 标记了 _emailReachable 的 leads 数组
+ */
+export function verifyEmails(leads) {
+  if (!Array.isArray(leads)) return Promise.resolve([])
+
+  const tasks = leads.map(lead => {
+    return new Promise(resolve => {
+      const result = { ...lead }
+      if (!lead._emailValid || !lead._emailNormalized) {
+        result._emailReachable = false
+        return resolve(result)
+      }
+
+      const domain = lead._emailNormalized.split('@')[1]
+      if (!domain) {
+        result._emailReachable = false
+        return resolve(result)
+      }
+
+      // Google DNS over HTTPS：查询 MX 记录
+      fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`, {
+        signal: AbortSignal.timeout(5000)
+      })
+        .then(r => r.json())
+        .then(data => {
+          // 有 MX 记录 = 域名能收邮件
+          result._emailReachable = !!(data.Answer && data.Answer.length > 0)
+          resolve(result)
+        })
+        .catch(() => {
+          // DNS 查询失败，保守标记为 true（不排除，避免误杀）
+          result._emailReachable = true
+          resolve(result)
+        })
+    })
+  })
+
+  return Promise.all(tasks)
+}
+
+/**
+ * 完整验证流程：格式校验 + 网站可访问性 + 邮箱 MX 记录
+ * @param {Array} leads - AI 生成的 leads 数组
+ * @param {Object} options - { verifyWebsite: true, verifyEmail: true }
+ * @returns {Promise<Array>}
+ */
+export async function fullVerifyLeads(leads, options = {}) {
+  const { verifyWebsite = true, verifyEmail = true } = options
+  let result = validateLeads(leads)
+
+  if (verifyWebsite) {
+    result = await verifyWebsites(result)
+  }
+
+  if (verifyEmail) {
+    result = await verifyEmails(result)
+  }
+
+  return result
 }

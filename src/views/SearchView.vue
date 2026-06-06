@@ -48,12 +48,16 @@
     </div>
 
     <!-- Results -->
-    <div v-if="hasSearched" class="results-section">
-      <div v-if="isSearching && !isLoadingNext" class="loading-state">
-        <div class="spinner"></div>
-        <p>AI {{ $t('home.searchLeads').toLowerCase() }}...</p>
-      </div>
-      <template v-else-if="results.length">
+  <div v-if="hasSearched" class="results-section">
+    <div v-if="isSearching && !isLoadingNext" class="loading-state">
+      <div class="spinner"></div>
+      <p>AI {{ $t('home.searchLeads').toLowerCase() }}...</p>
+    </div>
+    <div v-if="isValidating" class="validating-state">
+      <div class="spinner small"></div>
+      <p>Verifying websites & emails...</p>
+    </div>
+    <template v-else-if="results.length">
         <div class="result-header-bar">
           <p class="result-count">
             {{ searchStore.allResults.length }} results | Page {{ searchStore.currentPage + 1 }} of {{ searchStore.totalPages }}
@@ -177,7 +181,7 @@ import { useCreditsStore } from '../stores/credits'
 import { useSearchStore } from '../stores/search'
 import { generateLeads as aiGenerateLeads, analyzeClient as aiAnalyzeClient } from '../services/ai'
 import { copyToClipboard } from '../utils/helpers'
-import { validateLeads } from '../utils/validators'
+import { validateLeads, fullVerifyLeads } from '../utils/validators'
 
 const { t } = useI18n()
 const credits = useCreditsStore()
@@ -195,6 +199,7 @@ const lastQuery = ref('')
 const isAnalyzing = ref('')
 const analysisResult = ref('')
 const analysisTarget = ref('')
+const isValidating = ref(false)   // 网站/邮箱验证中
 
 // Region name mapping
 function tRegion(code) {
@@ -249,12 +254,32 @@ async function doSearch() {
       industry: industry.value,
       count: searchStore.pageSize,
     })
-    const validated = validateLeads(result.leads).map(l => ({ ...l, _saved: false }))
-    // Set as first page — replaces all previous results
+    let validated = validateLeads(result.leads).map(l => ({ ...l, _saved: false }))
+
+    // 先显示未验证结果，背景开始验证
     results.value = searchStore.markSavedStatus(validated)
     searchStore.setResults(validated, keyword.value.trim())
-    // Re-read from store to get paginated slice
     results.value = searchStore.results
+    isValidating.value = true
+
+    // 异步验证网站可访问性 + 邮箱 MX 记录
+    try {
+      const verified = await fullVerifyLeads(validated, { verifyWebsite: true, verifyEmail: true })
+      // 只保留网站可访问的结果（邮箱验证只标记，不过滤）
+      const filtered = verified.filter(l => l._websiteReachable !== false)
+      if (filtered.length === 0) {
+        // 所有结果都无法访问：退回积分，提示用户
+        console.warn('[Search] All leads failed website check, keeping originals')
+        // 不退积分——AI 已经提供了数据，只是网站不可访问
+      }
+      // 更新 store 和当前页结果
+      const marked = searchStore.markSavedStatus(filtered.length > 0 ? filtered : verified)
+      searchStore.setResults(marked, keyword.value.trim())
+      results.value = searchStore.results
+    } catch (verifyErr) {
+      console.warn('[Search] Verification skipped:', verifyErr.message)
+    }
+    isValidating.value = false
   } catch (err) {
     console.error('Search failed:', err)
     alert(err.message || 'Search failed')
@@ -287,6 +312,7 @@ async function nextPage() {
   }
 
   isLoadingNext.value = true
+  isValidating.value = true
   try {
     const excludeList = searchStore.excludedCompanies
     const result = await aiGenerateLeads({
@@ -297,7 +323,23 @@ async function nextPage() {
       exclude: excludeList,  // Pass excluded companies to avoid duplicates
     })
     const validated = validateLeads(result.leads).map(l => ({ ...l, _saved: false }))
-    const addedCount = searchStore.appendPageResults(validated)
+
+    // 验证网站可访问性 + 邮箱 MX 记录
+    let filtered = validated
+    try {
+      const verified = await fullVerifyLeads(validated, { verifyWebsite: true, verifyEmail: true })
+      // 只保留网站可访问的结果（邮箱验证只标记，不过滤）
+      filtered = verified.filter(l => l._websiteReachable !== false)
+      if (filtered.length === 0) {
+        // 所有结果都无法访问：保留原始结果
+        console.warn('[Search] All next-page leads failed website check, keeping originals')
+        filtered = verified
+      }
+    } catch (verifyErr) {
+      console.warn('[Search] Next-page verification skipped:', verifyErr.message)
+    }
+
+    const addedCount = searchStore.appendPageResults(filtered)
     results.value = searchStore.results
 
     if (addedCount === 0) {
@@ -317,6 +359,7 @@ async function nextPage() {
   }
 
   isLoadingNext.value = false
+  isValidating.value = false
 }
 
 function prevPage() {
@@ -438,6 +481,23 @@ async function copyAnalysis() {
 
 /* Results */
 .results-section { }
+.validating-state {
+  text-align: center;
+  padding: 20px 0;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.validating-state .spinner.small {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #1a56db;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 8px;
+}
 .loading-state {
   text-align: center; padding: 40px 0; color: #6b7280;
 }
