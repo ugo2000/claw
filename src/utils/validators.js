@@ -218,8 +218,10 @@ export function validateLeads(leads) {
 }
 
 /**
- * 异步验证网站是否可访问（前端 favicon 探测，无 CORS 问题）
- * 对每个 lead，尝试加载其 favicon，超时 6 秒
+ * 异步验证网站是否可访问（前端 fetch + no-cors 探测）
+ * 原理：fetch() 在 no-cors 模式下，若 DNS 无法解析则 promise reject，
+ * 若域名存在则 promise resolve（即使 HTTP 404 或 CORS 阻断）。
+ * 这是浏览器端最可靠的免费探测方案。
  * @param {Array} leads - validateLeads() 处理后的 leads 数组
  * @returns {Promise<Array>} - 标记了 _websiteReachable 的 leads 数组
  */
@@ -229,60 +231,49 @@ export function verifyWebsites(leads) {
   const tasks = leads.map(lead => {
     return new Promise(resolve => {
       const result = { ...lead }
-      // 如果没有 website 或格式无效，直接返回
+
+      // 无网站或格式无效，直接标记不可访问
       if (!lead._websiteValid || !lead._websiteNormalized) {
         result._websiteReachable = false
         return resolve(result)
       }
 
-      let hostname = ''
-      try {
-        hostname = new URL(lead._websiteNormalized).hostname
-      } catch {
-        result._websiteReachable = false
-        return resolve(result)
-      }
+      const url = lead._websiteNormalized
+      let done = false
 
-      // 用 Google favicon 服务探测（无 CORS 限制，且能间接验证域名是否存在）
-      const img = new Image()
-      const timeout = setTimeout(() => {
-        img.src = ''
-        result._websiteReachable = false
-        resolve(result)
-      }, 6000)
-
-      img.onload = () => {
-        clearTimeout(timeout)
-        result._websiteReachable = true
+      const finish = (reachable) => {
+        if (done) return
+        done = true
+        result._websiteReachable = reachable
         resolve(result)
       }
 
-      img.onerror = () => {
-        clearTimeout(timeout)
-        // onerror 也可能是 404，但域名存在，所以再试一个备用方案
-        // 用另一个公共 favicon 服务二次确认
-        const img2 = new Image()
-        const timeout2 = setTimeout(() => {
-          result._websiteReachable = false
-          resolve(result)
-        }, 6000)
+      // 方法1：fetch() + no-cors 探测域名是否真实存在
+      // 若 DNS 解析失败 → promise reject → 不可访问
+      // 若 DNS 解析成功 → promise resolve → 可访问（即使 404/CORS）
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()   // 超时视为不可访问
+        finish(false)
+      }, 7000)
 
-        img2.onload = () => {
-          clearTimeout(timeout2)
-          result._websiteReachable = true
-          resolve(result)
-        }
-        img2.onerror = () => {
-          clearTimeout(timeout2)
-          result._websiteReachable = false
-          resolve(result)
-        }
-        // 备用：icon.horse
-        img2.src = `https://icon.horse/icon/${hostname}`
-      }
-
-      // 主探测：Google favicon 服务
-      img.src = `https://www.google.com/s2/favicons?domain=${hostname}&sz=16`
+      fetch(url, {
+        mode: 'no-cors',
+        signal: controller.signal,
+      })
+        .then(() => {
+          clearTimeout(timeoutId)
+          finish(true)
+        })
+        .catch((err) => {
+          clearTimeout(timeoutId)
+          if (err.name === 'AbortError') {
+            finish(false)   // 超时
+          } else {
+            // fetch 失败：DNS 无法解析 / 网络错误 → 不可访问
+            finish(false)
+          }
+        })
     })
   })
 
