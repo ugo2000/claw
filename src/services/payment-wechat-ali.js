@@ -7,13 +7,13 @@ const PAYMENT_CONFIG = {
   wechat: {
     enabled: true,
     qrImageUrl: '/wechat-qr.png',   // 微信收款码（已放在 public/wechat-qr.png）
-    wechatId: '',                    // 留空 = 不显示微信号文字
+    wechatId: 'ugo2000',              // 微信号
     payeeName: '贸虾',
   },
   alipay: {
     enabled: true,
     qrImageUrl: '/alipay-qr.png',   // 支付宝收款码（已放在 public/alipay-qr.png）
-    alipayId: '',                    // 留空 = 不显示账号文字
+    alipayId: 'ugo2000@126.com',     // 支付宝账号
     payeeName: '贸虾',
   },
   // autoApprove: false = 用户上传截图后等待人工审核后到账
