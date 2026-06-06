@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.tradeclaw.app',
-  appName: '贸虾',
+  appId: 'com.ugoclaw.app',
+  appName: '贸虾 UgoClaw',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

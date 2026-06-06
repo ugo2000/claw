@@ -19,7 +19,7 @@ const PAYMENT_CONFIG = {
   // autoApprove: false = 用户上传截图后等待人工审核后到账
   // autoApprove: true  = 用户上传截图后立即到账（小额信任模式）
   autoApprove: true,
-  adminEmail: 'admin@tradeclaw.com',
+  adminEmail: 'admin@ugoclaw.com',
 }
 
 const ORDERS_KEY = 'claw_payment_orders'
