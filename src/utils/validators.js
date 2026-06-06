@@ -218,10 +218,11 @@ export function validateLeads(leads) {
 }
 
 /**
- * 异步验证网站是否可访问（前端 fetch + no-cors 探测）
- * 原理：fetch() 在 no-cors 模式下，若 DNS 无法解析则 promise reject，
- * 若域名存在则 promise resolve（即使 HTTP 404 或 CORS 阻断）。
- * 这是浏览器端最可靠的免费探测方案。
+ * 异步验证网站域名是否存在（DNS 记录查询）
+ * 原理：用 Google DNS over HTTPS API 查询 A 记录
+ * - 有 A 记录 → 域名存在（_websiteReachable = true）
+ * - 无 A 记录 → 域名不存在（_websiteReachable = false）
+ * 这是浏览器端最可靠的免费域名存在性检测方案。
  * @param {Array} leads - validateLeads() 处理后的 leads 数组
  * @returns {Promise<Array>} - 标记了 _websiteReachable 的 leads 数组
  */
@@ -238,41 +239,37 @@ export function verifyWebsites(leads) {
         return resolve(result)
       }
 
-      const url = lead._websiteNormalized
-      let done = false
-
-      const finish = (reachable) => {
-        if (done) return
-        done = true
-        result._websiteReachable = reachable
-        resolve(result)
+      let hostname = ''
+      try {
+        hostname = new URL(lead._websiteNormalized).hostname
+      } catch {
+        result._websiteReachable = false
+        return resolve(result)
       }
 
-      // 方法1：fetch() + no-cors 探测域名是否真实存在
-      // 若 DNS 解析失败 → promise reject → 不可访问
-      // 若 DNS 解析成功 → promise resolve → 可访问（即使 404/CORS）
+      // 用 Google DNS over HTTPS API 查询 A 记录（支持 CORS）
       const controller = new AbortController()
       const timeoutId = setTimeout(() => {
-        controller.abort()   // 超时视为不可访问
-        finish(false)
-      }, 7000)
+        controller.abort()
+        result._websiteReachable = false
+        resolve(result)
+      }, 6000)
 
-      fetch(url, {
-        mode: 'no-cors',
+      fetch(`https://dns.google/resolve?name=${encodeURIComponent(hostname)}&type=A`, {
         signal: controller.signal,
       })
-        .then(() => {
+        .then(r => r.json())
+        .then(data => {
           clearTimeout(timeoutId)
-          finish(true)
+          // 有 A 记录 = 域名存在
+          result._websiteReachable = !!(data.Answer && data.Answer.length > 0)
+          resolve(result)
         })
-        .catch((err) => {
+        .catch(() => {
           clearTimeout(timeoutId)
-          if (err.name === 'AbortError') {
-            finish(false)   // 超时
-          } else {
-            // fetch 失败：DNS 无法解析 / 网络错误 → 不可访问
-            finish(false)
-          }
+          // DNS 查询失败，保守处理：标记为不可访问
+          result._websiteReachable = false
+          resolve(result)
         })
     })
   })
