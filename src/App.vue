@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import TabBar from './components/TabBar.vue'
 import * as auth from './services/auth'
@@ -46,11 +46,9 @@ function checkAuth() {
   userLoggedIn.value = !!stored
 }
 
-onMounted(async () => {
-  // Initial check
-  checkAuth()
-  authReady.value = true
-})
+// ✅ 在 setup() 中同步执行，确保首次渲染前已完成认证检查
+checkAuth()
+authReady.value = true
 
 // Re-check auth whenever route changes (catches login/logout navigation)
 watch(() => route.path, () => {

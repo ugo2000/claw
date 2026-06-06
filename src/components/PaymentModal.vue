@@ -111,7 +111,7 @@ const currentOrderId = ref('')
 
 const qrUrl = computed(() => {
   const cfg = config.value[method.value]
-  if (cfg && cfg.qrImageUrl && cfg.qrImageUrl !== '/wechat-qr.png' && cfg.qrImageUrl !== '/alipay-qr.png') {
+  if (cfg && cfg.qrImageUrl) {
     return cfg.qrImageUrl
   }
   return null
