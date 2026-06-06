@@ -21,6 +21,9 @@ const config = {
     replySuggest: 3,      // 回复建议
   },
 
+  // 是否启用免费真实数据源（Wikidata SPARQL，无需 API Key）
+  enableFreeDataSources: true,
+
   // 模型参数
   defaultParams: {
     temperature: 0.7,

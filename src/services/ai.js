@@ -4,6 +4,7 @@
  */
 import config from '../config/api.js'
 import { normalizeUrl, normalizeEmail } from '../utils/validators'
+import { fetchFromWikidata } from './wikidata.js'
 
 /**
  * 调用 DeepSeek Chat API
@@ -244,7 +245,7 @@ ${myGoal ? `My reply goal: ${myGoal}` : ''}`,
  * @param {Object} params - { keyword, region, industry, count }
  * @returns {Promise<{leads: Array, usage: Object}>}
  */
-export async function generateLeads(params) {
+async function generateLeadsAI(params) {
   const { keyword, region = '', industry = '', count = 10, exclude = [] } = params
 
   const regionHint = region ? `Target region: ${region}. ` : ''
@@ -386,6 +387,33 @@ Description: ${lead.desc}`,
 
   const result = await callDeepseek(messages, { temperature: 0.5, max_tokens: 800 })
   return { analysis: result.content, usage: result.usage }
+}
+
+
+/**
+ * 统一 lead 生成入口
+ * 优先使用免费真实数据源（Wikidata SPARQL），失败则 fallback 到 AI 生成
+ */
+export async function generateLeads(params) {
+  const { keyword, region = '', industry = '', count = 10, exclude = [] } = params
+
+  // 尝试免费 Wikidata 真实数据源
+  if (config.enableFreeDataSources !== false) {
+    try {
+      const wikidataLeads = await fetchFromWikidata({ keyword, region, industry, count, exclude })
+      if (wikidataLeads && wikidataLeads.length > 0) {
+        return {
+          leads: wikidataLeads,
+          usage: { source: 'wikidata', count: wikidataLeads.length }
+        }
+      }
+    } catch (e) {
+      console.warn('[generateLeads] Wikidata failed, falling back to AI:', e.message)
+    }
+  }
+
+  // Fallback 到 AI 生成
+  return await generateLeadsAI(params)
 }
 
 export default {
