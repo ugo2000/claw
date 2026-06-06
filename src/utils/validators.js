@@ -218,11 +218,14 @@ export function validateLeads(leads) {
 }
 
 /**
- * 异步验证网站域名是否存在（DNS 记录查询）
- * 原理：用 Google DNS over HTTPS API 查询 A 记录
- * - 有 A 记录 → 域名存在（_websiteReachable = true）
- * - 无 A 记录 → 域名不存在（_websiteReachable = false）
- * 这是浏览器端最可靠的免费域名存在性检测方案。
+ * 异步验证网站是否可访问（fetch() 实际探测）
+ * 原理：用 fetch() + AbortController 超时检测
+ * - fetch 成功 resolve → 服务器有响应（_websiteReachable = true）
+ * - fetch 失败（DNS 无法解析/连接超时/服务器无响应）→ _websiteReachable = false
+ * - no-cors 模式下，只要服务器响应（含 404/500）就会 resolve
+ * - 只有网络级错误（DNS 失败、连接被拒、超时）才会 reject
+ *
+ * 这是浏览器/WebView 端最可靠的免费网站可达性检测方案。
  * @param {Array} leads - validateLeads() 处理后的 leads 数组
  * @returns {Promise<Array>} - 标记了 _websiteReachable 的 leads 数组
  */
@@ -239,37 +242,38 @@ export function verifyWebsites(leads) {
         return resolve(result)
       }
 
-      let hostname = ''
-      try {
-        hostname = new URL(lead._websiteNormalized).hostname
-      } catch {
-        result._websiteReachable = false
-        return resolve(result)
+      const url = lead._websiteNormalized
+      let done = false
+
+      const finish = (reachable) => {
+        if (done) return
+        done = true
+        result._websiteReachable = reachable
+        resolve(result)
       }
 
-      // 用 Google DNS over HTTPS API 查询 A 记录（支持 CORS）
+      // 用 fetch() + AbortController 探测网站是否响应
+      // no-cors 模式说明：
+      //   - 服务器有响应（含 404/500/重定向）→ promise resolve
+      //   - DNS 解析失败 / 连接超时 / 服务器拒绝连接 → promise reject
+      //   - 超时（AbortController）→ promise reject
       const controller = new AbortController()
       const timeoutId = setTimeout(() => {
-        controller.abort()
-        result._websiteReachable = false
-        resolve(result)
-      }, 6000)
+        controller.abort()   // 超时 → reject
+      }, 9000)
 
-      fetch(`https://dns.google/resolve?name=${encodeURIComponent(hostname)}&type=A`, {
+      fetch(url, {
+        mode: 'no-cors',
         signal: controller.signal,
+        cache: 'no-cache',
       })
-        .then(r => r.json())
-        .then(data => {
+        .then(() => {
           clearTimeout(timeoutId)
-          // 有 A 记录 = 域名存在
-          result._websiteReachable = !!(data.Answer && data.Answer.length > 0)
-          resolve(result)
+          finish(true)   // 服务器有响应
         })
         .catch(() => {
           clearTimeout(timeoutId)
-          // DNS 查询失败，保守处理：标记为不可访问
-          result._websiteReachable = false
-          resolve(result)
+          finish(false)  // DNS 失败 / 连接超时 / 服务器无响应
         })
     })
   })
