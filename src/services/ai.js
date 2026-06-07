@@ -71,7 +71,12 @@ const SYSTEM_PROMPT = `你是一位专业的外贸开发信撰写专家，拥有
  * @returns {Promise<{email: string, subject: string, usage: Object}>}
  */
 export async function generateEmail(params) {
-  const { company, contactName, product, type, tone } = params
+  // 兼容两种参数命名风格（companyName / company，contactPerson / contactName 等）
+  const company = params.companyName || params.company || ''
+  const contactName = params.contactPerson || params.contactName || ''
+  const product = params.productDescription || params.product || ''
+  const type = params.emailType || params.type || 'intro'
+  const tone = params.tone || 'professional'
 
   const typeGuide = {
     intro: '这是一封首次开发的冷邮件，目标是引起对方兴趣并争取回复',
@@ -92,14 +97,17 @@ export async function generateEmail(params) {
       content: `请为以下场景撰写一封开发信：
 
 **收件人公司**: ${company}
-**联系人**: ${contactName || '未知'}
+**联系人姓名**: ${contactName || '(未填写，用通用称呼如 Dear Sir/Madam)'}
 **我的产品/服务**: ${product}
 **邮件类型**: ${typeGuide[type] || typeGuide.intro}
 **语气风格**: ${toneGuide[tone] || toneGuide.professional}
 
-请直接输出邮件正文。格式要求：
-- 第一行是邮件主题（Subject: ...）
-- 空一行后是正文`,
+重要要求：
+- 邮件开头必须称呼联系人：${contactName ? `"Dear ${contactName},"` : '"Dear Sir/Madam,"'}
+- 邮件正文中必须提到客户公司名"${company}"，体现针对性
+- 请直接输出邮件正文，格式要求：
+  - 第一行是邮件主题（Subject: ...）
+  - 空一行后是正文`,
     },
   ]
 
