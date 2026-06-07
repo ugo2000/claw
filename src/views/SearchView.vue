@@ -88,9 +88,26 @@
               </a>
               <span
                 v-if="item.email"
-                :class="['meta-email', { 'email-invalid': !item._emailValid }]"
+                :class="[
+                  'meta-email',
+                  !item._emailValid ? 'email-invalid'
+                    : item._emailReachable === true ? 'email-verified'
+                    : item._emailUncertain ? 'email-unverified'
+                    : item._emailReachable === false ? 'email-invalid'
+                    : 'email-pending'
+                ]"
+                :title="!item._emailValid ? '❌ Invalid email format'
+                  : item._emailReachable === true ? '✅ Email domain verified (MX record found)'
+                  : item._emailUncertain ? '⚠️ Could not verify this email — network issue or timeout'
+                  : item._emailReachable === false ? '❌ No MX record found for this email domain'
+                  : '🔄 Verifying email...'"
               >
-                <svg v-if="!item._emailValid" class="warn-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm1 12H7v-2h2v2zm0-3H7V4h2v5z"/></svg>
+                <!-- 格式无效 / 无MX记录 -->
+                <svg v-if="!item._emailValid || (item._emailReachable === false && !item._emailUncertain)" class="email-status-icon warn-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm1 12H7v-2h2v2zm0-3H7V4h2v5z"/></svg>
+                <!-- 已验证（绿色对勾） -->
+                <svg v-else-if="item._emailReachable === true" class="email-status-icon check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/></svg>
+                <!-- 不确定（黄色问号） -->
+                <svg v-else-if="item._emailUncertain" class="email-status-icon uncertain-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M5.255 5.786a.237.237 0 00.241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 00.25.246h.811a.25.25 0 00.25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/></svg>
                 {{ item.email }}
               </span>
             </div>
@@ -574,16 +591,41 @@ async function copyAnalysis() {
   padding: 2px 8px; border-radius: 4px;
 }
 .meta-link, .meta-email {
-  font-size: 11px; color: #1a56db; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px; color: #1a56db; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 3px;
 }
 .meta-link { text-decoration: none; }
 .meta-link:hover { text-decoration: underline; }
 .link-invalid { color: #f59e0b !important; cursor: not-allowed; opacity: 0.8; }
-.email-invalid { color: #f59e0b !important; opacity: 0.8; }
+
+/* 邮箱三态样式 */
+.email-verified {
+  color: #059669 !important;   /* 绿色：MX 验证通过 */
+  font-weight: 500;
+}
+.email-unverified {
+  color: #d97706 !important;   /* 黄色：不确定 */
+  opacity: 0.9;
+}
+.email-pending {
+  color: #6b7280 !important;   /* 灰色：验证中 */
+  opacity: 0.7;
+}
+.email-invalid {
+  color: #ef4444 !important;   /* 红色：格式无效 */
+  opacity: 0.8;
+  text-decoration: line-through;
+}
+
+/* 邮箱状态图标 */
+.email-status-icon {
+  width: 11px; height: 11px; flex-shrink: 0;
+}
+.check-icon { color: #059669; }     /* 绿色对勾 */
+.uncertain-icon { color: #d97706; } /* 黄色问号 */
 .warn-icon {
   width: 12px; height: 12px; flex-shrink: 0;
-  color: #f59e0b; margin-right: 1px;
+  color: #ef4444; margin-right: 1px;
 }
 .result-footer { display: flex; justify-content: space-between; align-items: center; }
 .match-score { font-size: 12px; color: #6b7280; }

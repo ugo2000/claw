@@ -321,15 +321,21 @@ export async function verifyWebsites(leads) {
 /**
  * 异步验证邮箱域名是否有 MX 记录（能收邮件）
  * 使用 Google DNS over HTTPS API（免费，无 API Key 需求）
+ *
+ * 状态说明：
+ *   _emailReachable = true  + _emailUncertain = false → 绿色：MX 验证通过
+ *   _emailReachable = false + _emailUncertain = true  → 黄色：DNS 查询失败，不确定
+ *   _emailReachable = false + _emailUncertain = false → 红色：格式无效 / 无 MX 记录
+ *
  * @param {Array} leads - leads 数组
- * @returns {Promise<Array>} - 标记了 _emailReachable 的 leads 数组
+ * @returns {Promise<Array>} - 标记了 _emailReachable / _emailUncertain 的 leads 数组
  */
 export function verifyEmails(leads) {
   if (!Array.isArray(leads)) return Promise.resolve([])
 
   const tasks = leads.map(lead => {
     return new Promise(resolve => {
-      const result = { ...lead }
+      const result = { ...lead, _emailUncertain: false }
       if (!lead._emailValid || !lead._emailNormalized) {
         result._emailReachable = false
         return resolve(result)
@@ -347,13 +353,16 @@ export function verifyEmails(leads) {
       })
         .then(r => r.json())
         .then(data => {
-          // 有 MX 记录 = 域名能收邮件
-          result._emailReachable = !!(data.Answer && data.Answer.length > 0)
+          // 有 MX 记录 = 域名能收邮件（绿色）
+          const hasMX = !!(data.Answer && data.Answer.length > 0)
+          result._emailReachable = hasMX
+          result._emailUncertain = false   // 确定结果，不是不确定
           resolve(result)
         })
         .catch(() => {
-          // DNS 查询失败，保守标记为 true（不排除，避免误杀）
-          result._emailReachable = true
+          // DNS 查询失败（网络问题/超时）→ 黄色：不确定，保守保留
+          result._emailReachable = false
+          result._emailUncertain = true    // 标记为不确定
           resolve(result)
         })
     })
