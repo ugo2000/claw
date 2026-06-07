@@ -4,6 +4,30 @@
  */
 
 /**
+ * 常见 URL 拼写错误模式
+ */
+const URL_TYPO_PATTERNS = [
+  /^https?:\/\/w{4,}/i,           // wwww... 四个及以上 w
+  /^https?:\/\/wwww\./i,           // wwww. 明确四个 w
+  /^https?:\/\/w{3,4}\./i,        // 允许 www. 但不允许 wwww.
+  /htt+p:/i,                       // htttp, httpp 等
+  /httpss?:\/\//i,                 // httpss
+  /\.c[o0]m\d/i,                  // .com1, .com2 等异常后缀
+  /\.(net|org|edu|gov)\d/i,        // 同理
+]
+
+/**
+ * 检测 URL 是否包含常见拼写错误
+ * @param {string} url
+ * @returns {boolean} - true = 有拼写错误
+ */
+function hasUrlTypo(url) {
+  if (!url || typeof url !== 'string') return false
+  const lower = url.toLowerCase()
+  return URL_TYPO_PATTERNS.some(p => p.test(lower))
+}
+
+/**
  * 校验 URL 格式是否合法
  * @param {string} url - 待校验的 URL 字符串
  * @param {Object} options - 配置选项
@@ -16,6 +40,9 @@ export function isValidUrl(url, options = {}) {
 
   const trimmed = url.trim()
   if (!trimmed || trimmed.length > 2048) return false
+
+  // 先检测常见拼写错误
+  if (hasUrlTypo(trimmed)) return false
 
   const { requireProtocol = false, allowedProtocols = ['http', 'https'] } = options
 
@@ -92,7 +119,11 @@ export function normalizeUrl(url) {
 
   if (!trimmed) return { url: '', valid: false, warning: '' }
 
-  // 已经是合法的完整 URL
+  // 检测常见拼写错误（如 wwww 四个 w）
+  if (hasUrlTypo(trimmed)) {
+    return { url: trimmed, valid: false, warning: 'typo_in_url' }
+  }
+
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       new URL(trimmed)
@@ -218,67 +249,73 @@ export function validateLeads(leads) {
 }
 
 /**
- * 异步验证网站是否可访问（fetch() 实际探测）
+ * 异步验证网站是否可访问（fetch() 实际探测，带重试）
  * 原理：用 fetch() + AbortController 超时检测
  * - fetch 成功 resolve → 服务器有响应（_websiteReachable = true）
  * - fetch 失败（DNS 无法解析/连接超时/服务器无响应）→ _websiteReachable = false
  * - no-cors 模式下，只要服务器响应（含 404/500）就会 resolve
  * - 只有网络级错误（DNS 失败、连接被拒、超时）才会 reject
  *
- * 这是浏览器/WebView 端最可靠的免费网站可达性检测方案。
+ * 带重试：首次失败后等待 3 秒重试一次，避免偶发超时误判
+ *
  * @param {Array} leads - validateLeads() 处理后的 leads 数组
  * @returns {Promise<Array>} - 标记了 _websiteReachable 的 leads 数组
  */
-export function verifyWebsites(leads) {
+function probeWebsite(url, timeoutMs = 7000) {
+  return new Promise((resolve) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    fetch(url, {
+      mode: 'no-cors',
+      signal: controller.signal,
+      cache: 'no-cache',
+    })
+      .then(() => {
+        clearTimeout(timeoutId)
+        resolve(true)
+      })
+      .catch(() => {
+        clearTimeout(timeoutId)
+        resolve(false)
+      })
+  })
+}
+
+export async function verifyWebsites(leads) {
   if (!Array.isArray(leads)) return Promise.resolve([])
 
-  const tasks = leads.map(lead => {
-    return new Promise(resolve => {
+  const results = await Promise.all(
+    leads.map(async (lead) => {
       const result = { ...lead }
 
       // 无网站或格式无效，直接标记不可访问
       if (!lead._websiteValid || !lead._websiteNormalized) {
         result._websiteReachable = false
-        return resolve(result)
+        return result
       }
 
-      const url = lead._websiteNormalized
-      let done = false
-
-      const finish = (reachable) => {
-        if (done) return
-        done = true
-        result._websiteReachable = reachable
-        resolve(result)
+      // 拼写错误直接标记不可访问
+      if (lead._websiteWarning === 'typo_in_url') {
+        result._websiteReachable = false
+        return result
       }
 
-      // 用 fetch() + AbortController 探测网站是否响应
-      // no-cors 模式说明：
-      //   - 服务器有响应（含 404/500/重定向）→ promise resolve
-      //   - DNS 解析失败 / 连接超时 / 服务器拒绝连接 → promise reject
-      //   - 超时（AbortController）→ promise reject
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()   // 超时 → reject
-      }, 9000)
+      // 首次探测
+      let reachable = await probeWebsite(lead._websiteNormalized, 7000)
 
-      fetch(url, {
-        mode: 'no-cors',
-        signal: controller.signal,
-        cache: 'no-cache',
-      })
-        .then(() => {
-          clearTimeout(timeoutId)
-          finish(true)   // 服务器有响应
-        })
-        .catch(() => {
-          clearTimeout(timeoutId)
-          finish(false)  // DNS 失败 / 连接超时 / 服务器无响应
-        })
+      // 首次失败，重试一次（避免偶发超时）
+      if (!reachable) {
+        await new Promise(r => setTimeout(r, 3000))
+        reachable = await probeWebsite(lead._websiteNormalized, 7000)
+      }
+
+      result._websiteReachable = reachable
+      return result
     })
-  })
+  )
 
-  return Promise.all(tasks)
+  return results
 }
 
 /**

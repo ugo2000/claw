@@ -271,7 +271,7 @@ For each lead, output EXACTLY this JSON format (no markdown, no explanation):
       "desc": "Brief company profile (2-3 sentences about what they do, their scale, procurement needs). Be realistic but note these are AI-generated leads for prospecting.",
       "score": 85,
       "email": "procurement@domain.com (best guess or placeholder)",
-      "website": "https://www.domain.com (must include https:// prefix, use real-looking domain)"
+      "website": "https://www.companyname.com (MUST be a real, accessible website - verify before outputting)"
     }
   ]
 }
@@ -281,9 +281,9 @@ Rules:
 - Companies should be realistic and relevant to the search query
 - Score should be between 60-95 based on relevance to the query
 - desc must be specific and useful for sales outreach
-- Use real-looking company names that could plausibly exist
-- website MUST start with https:// (e.g. https://www.companyname.com or https://companyname.com)
-- email should look realistic, avoid generic placeholders like info@domain.com when possible
+- Use real company names and websites that actually exist (search the web if unsure, do NOT make up fake domains like domain.com or example.com)
+- website MUST be a real, accessible URL starting with https:// (verify before outputting)
+- email should be realistic - use info@, sales@, procurement@ based on real company domains
 - If the query is vague, make reasonable assumptions
 - OUTPUT ONLY THE JSON, nothing else${excludeHint}`,
     },

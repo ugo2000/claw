@@ -109,7 +109,14 @@
                   @click.stop="saveClient(item)"
                   :disabled="item._saved"
                 >
-                  {{ item._saved ? '\u2705 Saved' : $t('search.saveBtn') }}
+                  {{ item._saved ? '✅ Saved' : $t('search.saveBtn') }}
+                </button>
+                <button
+                  v-if="!item._websiteReachable || !item._emailReachable"
+                  class="report-btn"
+                  @click.stop="reportInvalid(item, index)"
+                >
+                  🚫 Invalid
                 </button>
                 <router-link
                   :to="{ path: '/email', query: { company: item.company, industry: item.industry } }"
@@ -407,6 +414,24 @@ function saveClient(item) {
   searchStore.updateItemSaved(item.company)
 }
 
+/**
+ * 报告无效结果（网站打不开/邮箱无效）
+ * - 从当前结果中移除
+ * - 加入排除列表，避免后续搜索再次出现
+ */
+function reportInvalid(item, index) {
+  // 加入排除列表
+  searchStore.addExcludedCompany(item.company)
+  // 从当前页移除
+  const realIndex = searchStore.currentPageIndex + index
+  searchStore.allResults.splice(realIndex, 1)
+  results.value = searchStore.results
+  // 提示
+  const msg = []
+  if (!item._websiteReachable) msg.push('website unreachable')
+  if (!item._emailReachable) msg.push('email invalid')
+}
+
 async function analyzeClient(item) {
   const costResult = credits.deduct(10, `${t('search.analysisTitle')} - ${item.company}`)
   if (!costResult.success) {
@@ -572,6 +597,11 @@ async function copyAnalysis() {
   background: #10b981; color: white; border: none;
   border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;
 }
+.report-btn {
+  background: #fef3c7; color: #b45309; border: 1px solid #f59e0b;
+  border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer;
+}
+.report-btn:active { background: #fde68a; }
 
 /* Pagination */
 .pagination-bar {

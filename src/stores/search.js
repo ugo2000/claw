@@ -132,6 +132,14 @@ export const useSearchStore = defineStore('search', () => {
     saveToStorage()
   }
 
+  // 报告无效公司：加入排除列表，避免后续搜索再次出现
+  function addExcludedCompany(companyName) {
+    if (companyName && !excludedCompanies.value.includes(companyName)) {
+      excludedCompanies.value = [...excludedCompanies.value, companyName]
+      saveToStorage()
+    }
+  }
+
   return {
     keyword, region, industry, hasSearched, isSearching,
     results, lastQuery,
@@ -139,5 +147,6 @@ export const useSearchStore = defineStore('search', () => {
     allResults, excludedCompanies,
     loadFromStorage, saveToStorage, setResults, appendPageResults,
     goToPage, clear, updateItemSaved, markSavedStatus,
+    addExcludedCompany,
   }
 })
