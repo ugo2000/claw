@@ -422,14 +422,12 @@ function saveClient(item) {
 function reportInvalid(item, index) {
   // 加入排除列表
   searchStore.addExcludedCompany(item.company)
-  // 从当前页移除
-  const realIndex = searchStore.currentPageIndex + index
-  searchStore.allResults.splice(realIndex, 1)
+  // 从 allResults 中移除（用真实索引）
+  const realIndex = searchStore.currentPage * searchStore.pageSize + index
+  if (realIndex >= 0 && realIndex < searchStore.allResults.length) {
+    searchStore.allResults.splice(realIndex, 1)
+  }
   results.value = searchStore.results
-  // 提示
-  const msg = []
-  if (!item._websiteReachable) msg.push('website unreachable')
-  if (!item._emailReachable) msg.push('email invalid')
 }
 
 async function analyzeClient(item) {
