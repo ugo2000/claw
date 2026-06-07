@@ -81,7 +81,7 @@
                 :href="item._websiteNormalized || item.website"
                 target="_blank"
                 rel="noopener noreferrer"
-                @click.prevent="item._websiteValid ? window.open(item._websiteNormalized || item.website, '_blank') : null"
+                @click.prevent="openLink(item)"
               >
                 <svg v-if="!item._websiteValid" class="warn-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm1 12H7v-2h2v2zm0-3H7V4h2v5z"/></svg>
                 {{ item.website }}
@@ -189,6 +189,7 @@ import { useSearchStore } from '../stores/search'
 import { generateLeads as aiGenerateLeads, analyzeClient as aiAnalyzeClient } from '../services/ai'
 import { copyToClipboard } from '../utils/helpers'
 import { validateLeads, fullVerifyLeads } from '../utils/validators'
+import { openExternalUrl } from '../utils/browser'
 
 const { t } = useI18n()
 const credits = useCreditsStore()
@@ -380,6 +381,17 @@ function clearResults() {
   hasSearched.value = false
   lastQuery.value = ''
   searchStore.clear()
+}
+
+/**
+ * 打开外部链接（兼容浏览器 + Capacitor App）
+ * - 浏览器环境：window.open(url, '_blank')
+ * - Capacitor App：用 @capacitor/browser 打开
+ */
+function openLink(item) {
+  const url = item._websiteNormalized || item.website
+  if (!url) return
+  openExternalUrl(url)
 }
 
 function saveClient(item) {
