@@ -152,9 +152,17 @@ export async function searchRealLeads(params) {
 
   console.log(`[SerpAPI] 搜索: ${query}`)
 
-  const url = `${SERP_BASE_URL}?engine=google&q=${encodeURIComponent(query)}&num=${count + 5}&hl=en&api_key=${SERP_API_KEY}`
+  const isDev = import.meta.env.DEV
+  let fetchUrl
+  if (isDev) {
+    fetchUrl = `/api/serpapi/search?engine=google&q=${encodeURIComponent(query)}&num=${count + 5}&hl=en&api_key=${SERP_API_KEY}`
+  } else {
+    fetchUrl = `${SERP_BASE_URL}?engine=google&q=${encodeURIComponent(query)}&num=${count + 5}&hl=en&api_key=${SERP_API_KEY}`
+  }
 
-  const response = await fetch(url)
+  console.log(`[SerpAPI] fetch: ${isDev ? '(dev proxy)' : fetchUrl.replace(SERP_API_KEY, '***')}`)
+
+  const response = await fetch(fetchUrl)
   if (!response.ok) {
     throw new Error(`SerpAPI 错误: HTTP ${response.status}`)
   }

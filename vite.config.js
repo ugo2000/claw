@@ -14,6 +14,13 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/deepseek/, ''),
       },
+      // SerpAPI 代理 —— 绕过浏览器 CORS 限制
+      '/api/serpapi': {
+        target: 'https://serpapi.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/serpapi/, ''),
+      },
     },
   },
   build: {
