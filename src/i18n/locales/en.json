@@ -105,7 +105,10 @@
     "emailTipNoMx": "❌ No MX record found for this email domain",
     "emailTipChecking": "🔄 Verifying email...",
     "sourceReal": "🔍 Real Search",
-    "sourceAi": "🤖 AI Generated"
+    "sourceAi": "🤖 AI Generated",
+    "quotaTitle": "Search Quota Exhausted",
+    "quotaText": "SerpAPI search quota exhausted. Please contact us to upgrade!",
+    "quotaClose": "Got it"
   },
   "email": {
     "title": "AI Email Generator",

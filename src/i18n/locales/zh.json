@@ -105,7 +105,10 @@
     "emailTipNoMx": "❌ 邮箱域名没有MX记录",
     "emailTipChecking": "🔄 正在验证邮箱...",
     "sourceReal": "🔍 真实搜索",
-    "sourceAi": "🤖 AI生成"
+    "sourceAi": "🤖 AI生成",
+    "quotaTitle": "搜索额度已用尽",
+    "quotaText": "SerpAPI 搜索额度已用尽，请联系我们升级服务！",
+    "quotaClose": "知道了"
   },
   "email": {
     "title": "AI 开发信生成",

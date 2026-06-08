@@ -405,24 +405,16 @@ Description: ${lead.desc}`,
 
 /**
  * 统一 lead 生成入口
- * 优先使用 SerpAPI（真实 Google 搜索结果），失败则 fallback 到 AI 生成
+ * 仅使用 SerpAPI（真实 Google 搜索结果），不降级到 AI 生成
+ * SerpAPI 失败时直接抛出错误，由 UI 层处理
  */
 export async function generateLeads(params) {
-  // 尝试 SerpAPI 真实数据源
-  try {
-    const serpResult = await searchRealLeads(params)
-    if (serpResult.leads && serpResult.leads.length > 0) {
-      console.log(`[generateLeads] 使用 SerpAPI 真实数据: ${serpResult.leads.length} 条`)
-      return serpResult
-    }
-    console.warn('[generateLeads] SerpAPI 返回空结果，fallback 到 AI')
-  } catch (e) {
-    // API Key 未配置或请求失败，降级到 AI
-    console.warn('[generateLeads] SerpAPI 失败，fallback 到 AI:', e.message)
+  const result = await searchRealLeads(params)
+  if (!result || !result.leads || result.leads.length === 0) {
+    throw new Error('SERPAPI_EMPTY: SerpAPI 未返回有效结果，可能额度已用尽')
   }
-
-  // Fallback: AI 生成
-  return await generateLeadsAI(params)
+  console.log(`[generateLeads] 使用 SerpAPI 真实数据: ${result.leads.length} 条`)
+  return result
 }
 
 export default {

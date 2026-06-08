@@ -194,6 +194,27 @@
       <div v-else-if="!isSearching && !isLoadingNext && !results.length" class="empty-results">
         <p>&#128533; {{ $t('search.noResults') }}</p>
       </div>
+
+      <!-- Quota Exhausted Contact Modal -->
+      <div v-if="showQuotaModal" class="modal-overlay" @click="showQuotaModal = false">
+        <div class="modal-content quota-modal" @click.stop>
+          <div class="modal-header">
+            <h3>&#128308; {{ $t('search.quotaTitle') }}</h3>
+            <button class="close-btn" @click="showQuotaModal = false">&times;</button>
+          </div>
+          <div class="modal-body quota-body">
+            <div class="quota-icon">&#128308;</div>
+            <p class="quota-text">{{ $t('search.quotaText') }}</p>
+            <div class="quota-contact">
+              <p><strong>{{ $t('payment.wechatId') }}：</strong>ugo2000</p>
+              <p><strong>Email：</strong> ugo2000@126.com</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="action-sm primary" @click="showQuotaModal = false">{{ $t('search.quotaClose') }}</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- AI Analysis Modal -->
@@ -221,7 +242,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCreditsStore } from '../stores/credits'
 import { useSearchStore } from '../stores/search'
-import { generateLeads as aiGenerateLeads, analyzeClient as aiAnalyzeClient } from '../services/ai'
+import { generateLeads, analyzeClient } from '../services/ai'
 import { copyToClipboard } from '../utils/helpers'
 import { validateLeads, fullVerifyLeads } from '../utils/validators'
 import { openExternalUrl } from '../utils/browser'
@@ -244,6 +265,7 @@ const analysisResult = ref('')
 const analysisTarget = ref('')
 const isValidating = ref(false)   // 网站/邮箱验证中
 const onlyVerifiedEmails = ref(false)  // 仅显示邮箱已验证的结果
+const showQuotaModal = ref(false)  // SerpAPI 额度用尽弹窗
 
 // 计算属性：根据开关过滤显示结果
 const displayResults = computed(() => {
@@ -300,7 +322,7 @@ async function doSearch() {
   searchStore.industry = industry.value
 
   try {
-    const result = await aiGenerateLeads({
+    const result = await generateLeads({
       keyword: keyword.value.trim(),
       region: region.value,
       industry: industry.value,
@@ -334,8 +356,22 @@ async function doSearch() {
     isValidating.value = false
   } catch (err) {
     console.error('Search failed:', err)
-    alert(err.message || 'Search failed')
-    // Refund credits
+    // 检测 SerpAPI 额度用尽
+    const isQuota = err.message && (
+      err.message.includes('SERPAPI_EMPTY') ||
+      err.message.includes('quota') ||
+      err.message.includes('额度') ||
+      err.message.includes('exhausted') ||
+      err.message.includes('limit') ||
+      err.message.includes('429') ||
+      err.message.includes('402')
+    )
+    if (isQuota) {
+      showQuotaModal.value = true
+    } else {
+      alert(err.message || 'Search failed')
+    }
+    // 退还积分
     credits.balance += 2
     credits.totalUsed -= 2
     const idx = credits.usageLogs.findIndex(l => l.action.includes(`Lead Search - ${keyword.value}`))
@@ -367,7 +403,7 @@ async function nextPage() {
   isValidating.value = true
   try {
     const excludeList = searchStore.excludedCompanies
-    const result = await aiGenerateLeads({
+    const result = await generateLeads({
       keyword: keyword.value.trim(),
       region: region.value,
       industry: industry.value,
@@ -497,7 +533,7 @@ async function analyzeClient(item) {
   analysisTarget.value = item.company
 
   try {
-    const result = await aiAnalyzeClient({
+    const result = await analyzeClient({
       companyName: item.company,
       country: item.country,
       industry: item.industry,
@@ -600,6 +636,14 @@ async function copyAnalysis() {
 }
 .source-badge.real { color: #0369a1; background: #e0f2fe; border: 1px solid #bae6fd; }
 .source-badge.ai { color: #7c3aed; background: #ede9fe; border: 1px solid #c4b5fd; }
+
+/* Quota Modal */
+.quota-modal { max-width: 400px; }
+.quota-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
+.quota-text { font-size: 15px; color: #374151; text-align: center; line-height: 1.6; margin-bottom: 16px; }
+.quota-contact { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; }
+.quota-contact p { margin: 4px 0; font-size: 14px; color: #1f2937; }
+.quota-body { padding: 20px; }
 .result-count { font-size: 13px; color: #6b7280; margin: 0; }
 .clear-results {
   background: none; border: none; color: #9ca3af; font-size: 13px; cursor: pointer; padding: 4px 8px;
