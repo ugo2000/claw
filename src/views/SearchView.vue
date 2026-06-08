@@ -27,14 +27,14 @@
         </select>
         <select v-model="industry" class="form-select">
           <option value="">{{ $t('search.allIndustries') }}</option>
-          <option value="Electronics">Electronics</option>
-          <option value="Textiles">Textiles</option>
-          <option value="Machinery">Machinery</option>
-          <option value="Auto Parts">Auto Parts</option>
-          <option value="Building Materials">Building Materials</option>
-          <option value="Food & Beverage">F&B</option>
-          <option value="Chemicals">Chemicals</option>
-          <option value="Home & Garden">Home & Garden</option>
+          <option value="Electronics">{{ $t('search.industries.electronics') }}</option>
+          <option value="Textiles">{{ $t('search.industries.textiles') }}</option>
+          <option value="Machinery">{{ $t('search.industries.machinery') }}</option>
+          <option value="Auto Parts">{{ $t('search.industries.autoParts') }}</option>
+          <option value="Building Materials">{{ $t('search.industries.buildingMaterials') }}</option>
+          <option value="Food & Beverage">{{ $t('search.industries.foodBeverage') }}</option>
+          <option value="Chemicals">{{ $t('search.industries.chemicals') }}</option>
+          <option value="Home & Garden">{{ $t('search.industries.homeGarden') }}</option>
         </select>
       </div>
       <button
@@ -63,7 +63,7 @@
     <template v-if="results.length && !isSearching">
         <div class="result-header-bar">
           <p class="result-count">
-            {{ searchStore.allResults.length }} {{ $t('search.resultsCount') }} | {{ $t('search.page') }} {{ searchStore.currentPage + 1 }} / {{ searchStore.totalPages }}
+            {{ searchStore.allResults.length }} {{ $t('search.resultsCount') }} | {{ $t('search.page') }} {{ searchStore.currentPage + 1 }} {{ $t('search.pageOf') }} {{ searchStore.totalPages }}{{ $t('search.pageSuffix') }}
           </p>
           <label class="filter-verified">
             <input type="checkbox" v-model="onlyVerifiedEmails" />
@@ -169,7 +169,7 @@
             &#9664; {{ $t('search.prev') }}
           </button>
           <span class="page-info">
-            {{ $t('search.page') }} <strong>{{ searchStore.currentPage + 1 }}</strong> / {{ searchStore.totalPages }}
+            {{ $t('search.page') }} <strong>{{ searchStore.currentPage + 1 }}</strong> {{ $t('search.pageOf') }} {{ searchStore.totalPages }}{{ $t('search.pageSuffix') }}
             <span v-if="searchStore.allResults.length > 0" class="total-info">
               ({{ searchStore.allResults.length }} {{ $t('search.resultsCount') }})
             </span>

@@ -82,6 +82,18 @@
     "noVerifiedOnPage": "No verified-email leads on this page. Try turning off the filter or load the next page.",
     "resultsCount": "results",
     "page": "Page",
+    "pageOf": "of",
+    "pageSuffix": "",
+    "industries": {
+      "electronics": "Electronics",
+      "textiles": "Textiles",
+      "machinery": "Machinery",
+      "autoParts": "Auto Parts",
+      "buildingMaterials": "Building Materials",
+      "foodBeverage": "Food & Beverage",
+      "chemicals": "Chemicals",
+      "homeGarden": "Home & Garden"
+    },
     "prev": "Prev",
     "next": "Next",
     "clear": "Clear",
@@ -150,7 +162,8 @@
     "sendEmail": "Email",
     "clientWebsite": "Website",
     "websiteInvalid": "Invalid URL format",
-    "emailFormatWarning": "Email format may be invalid"
+    "emailFormatWarning": "Email format may be invalid",
+    "unnamed": "Unnamed"
   },
   "profile": {
     "myProfile": "My Profile",

@@ -2,15 +2,15 @@
   <div class="clients-page">
     <!-- Header -->
     <div class="page-header">
-      <h1>My Clients</h1>
+      <h1>{{ $t('clients.title') }}</h1>
       <div class="header-actions">
-        <button class="import-btn" @click="showImport = true">Import</button>
-        <button class="add-btn" @click="showAdd = true">+ Add Client</button>
+        <button class="import-btn" @click="showImport = true">{{ $t('clients.importBtn') }}</button>
+        <button class="add-btn" @click="showAdd = true">+ {{ $t('clients.addClient') }}</button>
       </div>
     </div>
 
     <!-- Stats -->
-    <p class="total-count">{{ filteredClients.length }} client(s)</p>
+    <p class="total-count">{{ $t('clients.totalClients', { count: filteredClients.length }) }}</p>
 
     <!-- Filters -->
     <div class="filters">
@@ -27,22 +27,22 @@
     <div v-if="filteredClients.length" class="client-list">
       <div v-for="(client, index) in filteredClients" :key="index" class="client-card">
         <div class="client-top">
-          <h3>{{ client.company || client.name || 'Unnamed' }}</h3>
+          <h3>{{ client.company || client.name || $t('clients.unnamed') }}</h3>
           <span :class="['status-badge', `status-${client.status || 'new'}`]">{{ statusLabel(client.status) }}</span>
         </div>
         <div class="client-info">
-          <p v-if="client.contactName"><strong>Contact:</strong> {{ client.contactName }}</p>
+          <p v-if="client.contactName"><strong>{{ $t('clients.clientContact') }}：</strong> {{ client.contactName }}</p>
           <p v-if="client.email">
-            <strong>Email:</strong>
+            <strong>{{ $t('clients.clientEmail') }}：</strong>
             <template v-if="isClientEmailValid(client.email)">
               <a :href="'mailto:' + encodeURIComponent(client.email)">{{ client.email }}</a>
             </template>
             <template v-else>
-              <span class="invalid-email">{{ client.email }} <small>(invalid)</small></span>
+              <span class="invalid-email">{{ client.email }} <small>({{ $t('clients.emailFormatWarning') }})</small></span>
             </template>
           </p>
           <p v-if="client.website">
-            <strong>Website:</strong>
+            <strong>{{ $t('clients.clientWebsite') }}：</strong>
             <a
               v-if="isClientWebsiteValid(client.website)"
               :href="normalizeClientUrl(client.website)"
@@ -50,10 +50,10 @@
               rel="noopener noreferrer"
               class="website-link"
             >{{ client.website }}</a>
-            <span v-else class="invalid-url">{{ client.website }} <small>(invalid)</small></span>
+            <span v-else class="invalid-url">{{ client.website }} <small>({{ $t('clients.websiteInvalid') }})</small></span>
           </p>
-          <p v-if="client.phone"><strong>Phone:</strong> {{ client.phone }}</p>
-          <p v-if="client.country"><strong>Country:</strong> {{ client.country }}</p>
+          <p v-if="client.phone"><strong>{{ $t('clients.clientPhone') }}：</strong> {{ client.phone }}</p>
+          <p v-if="client.country"><strong>{{ $t('clients.clientCountry') }}：</strong> {{ client.country }}</p>
           <p v-if="client.notes" class="notes">{{ client.notes }}</p>
         </div>
         <div class="client-actions">
@@ -62,38 +62,38 @@
             custom
             v-slot="{ navigate }"
           >
-            <button @click="navigate" class="email-action">Send Email</button>
+            <button @click="navigate" class="email-action">{{ $t('clients.sendEmail') }}</button>
           </router-link>
           <button class="delete-action" @click="deleteClient(index)">&#128465;</button>
         </div>
       </div>
     </div>
     <div v-else class="empty-state">
-      <p>No clients yet. Save clients from search or add manually.</p>
+      <p>{{ $t('clients.emptyState') }}</p>
     </div>
 
     <!-- Import Modal -->
     <div v-if="showImport" class="modal-overlay" @click="showImport = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>Import Clients</h3>
+          <h3>{{ $t('clients.importModalTitle') }}</h3>
           <button class="close-btn" @click="showImport = false">&times;</button>
         </div>
         <div class="modal-body">
           <div class="dropzone" @dragover.prevent @drop.prevent="handleFileDrop" @click="$refs.fileInput.click()">
             <input ref="fileInput" type="file" accept=".csv,.xlsx,.xls" hidden @change="handleFileSelect" />
-            <p>Drag &amp; drop file here or click to select</p>
-            <p class="hint">Supported formats: CSV (.csv), Excel (.xlsx, .xls)</p>
+            <p>{{ $t('clients.dragDrop') }}</p>
+            <p class="hint">{{ $t('clients.supportedFormats') }}</p>
           </div>
           <button
             class="upload-btn"
             :disabled="!selectedFile || isImporting"
             @click="doImport"
-          >{{ isImporting ? 'Importing...' : 'Select File' }}</button>
+          >{{ isImporting ? $t('clients.importing') : $t('clients.selectFile') }}</button>
           <p v-if="importResult" class="import-result">{{ importResult }}</p>
         </div>
         <div class="modal-footer">
-          <button class="action-sm primary" @click="showImport = false">Close</button>
+          <button class="action-sm primary" @click="showImport = false">{{ $t('clients.close') }}</button>
         </div>
       </div>
     </div>
@@ -102,20 +102,20 @@
     <div v-if="showAdd" class="modal-overlay" @click="closeAdd">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ editingIndex >= 0 ? 'Edit Client' : 'New Client' }}</h3>
+          <h3>{{ editingIndex >= 0 ? $t('clients.editClient') : $t('clients.newClientTitle') }}</h3>
           <button class="close-btn" @click="closeAdd">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Company Name *</label>
-            <input v-model="editForm.company" type="text" placeholder="Company name" />
+            <label>{{ $t('clients.clientCompany') }} *</label>
+            <input v-model="editForm.company" type="text" :placeholder="$t('clients.clientCompany')" />
           </div>
           <div class="form-group">
-            <label>Contact Person</label>
-            <input v-model="editForm.contactName" type="text" placeholder="Contact name" />
+            <label>{{ $t('clients.clientContact') }}</label>
+            <input v-model="editForm.contactName" type="text" :placeholder="$t('clients.clientContact')" />
           </div>
           <div class="form-group">
-            <label>Email</label>
+            <label>{{ $t('clients.clientEmail') }}</label>
             <input
               v-model="editForm.email"
               type="email"
@@ -125,15 +125,15 @@
             <span v-if="emailError" class="field-error">{{ emailError }}</span>
           </div>
           <div class="form-group">
-            <label>Phone</label>
+            <label>{{ $t('clients.clientPhone') }}</label>
             <input v-model="editForm.phone" type="tel" placeholder="+1 234 567 8900" />
           </div>
           <div class="form-group">
-            <label>Country</label>
+            <label>{{ $t('clients.clientCountry') }}</label>
             <input v-model="editForm.country" type="text" placeholder="USA, Germany..." />
           </div>
           <div class="form-group">
-            <label>Website</label>
+            <label>{{ $t('clients.clientWebsite') }}</label>
             <input
               v-model="editForm.website"
               type="url"
@@ -143,13 +143,13 @@
             <span v-if="websiteError" class="field-error">{{ websiteError }}</span>
           </div>
           <div class="form-group">
-            <label>Notes</label>
-            <textarea v-model="editForm.notes" rows="2" placeholder="Additional notes"></textarea>
+            <label>{{ $t('clients.clientNotes') }}</label>
+            <textarea v-model="editForm.notes" rows="2" :placeholder="$t('clients.clientNotes')"></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="action-sm" @click="closeAdd">Cancel</button>
-          <button class="action-sm primary" @click="saveClient">Save</button>
+          <button class="action-sm" @click="closeAdd">{{ $t('clients.cancelBtn') }}</button>
+          <button class="action-sm primary" @click="saveClient">{{ $t('clients.saveBtn') }}</button>
         </div>
       </div>
     </div>
@@ -158,8 +158,11 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted, onActivated } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Papa from 'papaparse'
 import { isValidUrl, isValidEmail, normalizeUrl } from '../utils/validators'
+
+const { t } = useI18n()
 
 const showImport = ref(false)
 const showAdd = ref(false)
@@ -178,11 +181,11 @@ const emailError = ref('')
 const websiteError = ref('')
 
 const filterOptions = computed(() => [
-  { label: 'All', value: 'all' },
-  { label: 'New', value: 'new' },
-  { label: 'Contacted', value: 'contacted' },
-  { label: 'Replied', value: 'replied' },
-  { label: 'Closed', value: 'deal' },
+  { label: t('clients.filterAll'), value: 'all' },
+  { label: t('clients.filterNew'), value: 'new' },
+  { label: t('clients.filterContacted'), value: 'contacted' },
+  { label: t('clients.filterReplied'), value: 'replied' },
+  { label: t('clients.filterDeal'), value: 'deal' },
 ])
 
 const filteredClients = computed(() => {
@@ -191,7 +194,12 @@ const filteredClients = computed(() => {
 })
 
 function statusLabel(status) {
-  const map = { new: 'New', contacted: 'Sent', replied: 'Replied', deal: 'Closed' }
+  const map = {
+    new: t('clients.filterNew'),
+    contacted: t('clients.filterContacted'),
+    replied: t('clients.filterReplied'),
+    deal: t('clients.filterDeal'),
+  }
   return map[status] || status
 }
 
