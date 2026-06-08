@@ -76,7 +76,22 @@
     "close": "Close",
     "targetCompany": "Target:",
     "urlWarning": "URL may be inaccurate (AI generated)",
-    "emailPlaceholder": "Email may be placeholder"
+    "emailPlaceholder": "Email may be placeholder",
+    "verifying": "Verifying websites & emails...",
+    "verifiedOnly": "Verified emails only",
+    "noVerifiedOnPage": "No verified-email leads on this page. Try turning off the filter or load the next page.",
+    "resultsCount": "results",
+    "page": "Page",
+    "prev": "Prev",
+    "next": "Next",
+    "clear": "Clear",
+    "savedLabel": "✅ Saved",
+    "reportInvalid": "Invalid",
+    "emailTipInvalid": "❌ Invalid email format",
+    "emailTipVerified": "✅ Email domain verified (MX record found)",
+    "emailTipUncertain": "⚠️ Could not verify this email — network issue or timeout",
+    "emailTipNoMx": "❌ No MX record found for this email domain",
+    "emailTipChecking": "🔄 Verifying email..."
   },
   "email": {
     "title": "AI Email Generator",

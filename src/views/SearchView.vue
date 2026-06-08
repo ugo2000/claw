@@ -53,22 +53,29 @@
       <div class="spinner"></div>
       <p>AI {{ $t('home.searchLeads').toLowerCase() }}...</p>
     </div>
-    <div v-if="isValidating" class="validating-state">
-      <div class="spinner small"></div>
-      <p>Verifying websites & emails...</p>
+    <!-- 验证进度横幅（独立显示，不影响结果列表） -->
+    <div v-if="isValidating" class="validating-banner">
+      <span class="v-spinner"></span>
+      {{ $t('search.verifying') }}
     </div>
-    <template v-else-if="displayResults.length">
+
+    <!-- 有结果 -->
+    <template v-if="results.length && !isSearching">
         <div class="result-header-bar">
           <p class="result-count">
-            {{ searchStore.allResults.length }} results | Page {{ searchStore.currentPage + 1 }} of {{ searchStore.totalPages }}
+            {{ searchStore.allResults.length }} {{ $t('search.resultsCount') }} | {{ $t('search.page') }} {{ searchStore.currentPage + 1 }} / {{ searchStore.totalPages }}
           </p>
           <label class="filter-verified">
             <input type="checkbox" v-model="onlyVerifiedEmails" />
-            Verified emails only
+            {{ $t('search.verifiedOnly') }}
           </label>
-          <button v-if="results.length" class="clear-results" @click="clearResults">&times; Clear</button>
+          <button class="clear-results" @click="clearResults">&times; {{ $t('search.clear') }}</button>
         </div>
-        <div class="results-list">
+        <!-- 筛选后为空的提示 -->
+        <div v-if="onlyVerifiedEmails && !displayResults.length" class="empty-filter-hint">
+          &#128269; {{ $t('search.noVerifiedOnPage') }}
+        </div>
+        <div v-else class="results-list">
           <div v-for="(item, index) in displayResults" :key="item.company + '-' + index" class="result-card">
             <div class="result-header">
               <h3>{{ item.company }}</h3>
@@ -100,11 +107,11 @@
                     : item._emailReachable === false ? 'email-invalid'
                     : 'email-pending'
                 ]"
-                :title="!item._emailValid ? '❌ Invalid email format'
-                  : item._emailReachable === true ? '✅ Email domain verified (MX record found)'
-                  : item._emailUncertain ? '⚠️ Could not verify this email — network issue or timeout'
-                  : item._emailReachable === false ? '❌ No MX record found for this email domain'
-                  : '🔄 Verifying email...'"
+                :title="!item._emailValid ? $t('search.emailTipInvalid')
+                  : item._emailReachable === true ? $t('search.emailTipVerified')
+                  : item._emailUncertain ? $t('search.emailTipUncertain')
+                  : item._emailReachable === false ? $t('search.emailTipNoMx')
+                  : $t('search.emailTipChecking')"
               >
                 <!-- 格式无效 / 无MX记录 -->
                 <svg v-if="!item._emailValid || (item._emailReachable === false && !item._emailUncertain)" class="email-status-icon warn-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm1 12H7v-2h2v2zm0-3H7V4h2v5z"/></svg>
@@ -130,14 +137,14 @@
                   @click.stop="saveClient(item)"
                   :disabled="item._saved"
                 >
-                  {{ item._saved ? '✅ Saved' : $t('search.saveBtn') }}
+                  {{ item._saved ? $t('search.savedLabel') : $t('search.saveBtn') }}
                 </button>
                 <button
                   v-if="!item._websiteReachable || !item._emailReachable"
                   class="report-btn"
                   @click.stop="reportInvalid(item, index)"
                 >
-                  🚫 Invalid
+                  🚫 {{ $t('search.reportInvalid') }}
                 </button>
                 <router-link
                   :to="{ path: '/email', query: { company: item.company, industry: item.industry } }"
@@ -153,18 +160,18 @@
         </div>
 
         <!-- Pagination Controls -->
-        <div class="pagination-bar" v-if="results.length">
+        <div class="pagination-bar">
           <button
             class="page-btn prev"
             :disabled="searchStore.currentPage <= 0"
             @click="prevPage"
           >
-            &#9664; Prev
+            &#9664; {{ $t('search.prev') }}
           </button>
           <span class="page-info">
-            Page <strong>{{ searchStore.currentPage + 1 }}</strong> / {{ searchStore.totalPages }}
+            {{ $t('search.page') }} <strong>{{ searchStore.currentPage + 1 }}</strong> / {{ searchStore.totalPages }}
             <span v-if="searchStore.allResults.length > 0" class="total-info">
-              ({{ searchStore.allResults.length }} total)
+              ({{ searchStore.allResults.length }} {{ $t('search.resultsCount') }})
             </span>
           </span>
           <button
@@ -172,15 +179,12 @@
             :disabled="isSearching || isLoadingNext"
             @click="nextPage"
           >
-            Next &#9654;
+            {{ $t('search.next') }} &#9654;
             <span v-if="isLoadingNext" class="mini-spinner"></span>
           </button>
         </div>
       </template>
-      <div v-else-if="onlyVerifiedEmails && results.length && !displayResults.length" class="empty-results">
-        <p>&#128269; No verified-email leads on this page. Try turning off the filter or load the next page.</p>
-      </div>
-      <div v-else-if="!isSearching && !isLoadingNext" class="empty-results">
+      <div v-else-if="!isSearching && !isLoadingNext && !results.length" class="empty-results">
         <p>&#128533; {{ $t('search.noResults') }}</p>
       </div>
     </div>
@@ -464,12 +468,12 @@ function saveClient(item) {
  * - 从当前结果中移除
  * - 加入排除列表，避免后续搜索再次出现
  */
-function reportInvalid(item, index) {
+function reportInvalid(item, _index) {
   // 加入排除列表
   searchStore.addExcludedCompany(item.company)
-  // 从 allResults 中移除（用真实索引）
-  const realIndex = searchStore.currentPage * searchStore.pageSize + index
-  if (realIndex >= 0 && realIndex < searchStore.allResults.length) {
+  // 从 allResults 中移除（按 company 匹配，避免 displayResults 过滤后 index 错位）
+  const realIndex = searchStore.allResults.findIndex(l => l.company === item.company)
+  if (realIndex >= 0) {
     searchStore.allResults.splice(realIndex, 1)
   }
   results.value = searchStore.results
@@ -547,24 +551,21 @@ async function copyAnalysis() {
 .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cost-hint { text-align: center; font-size: 12px; color: #9ca3af; margin: 8px 0 0; }
 
-/* Results */
-.results-section { }
-.validating-state {
-  text-align: center;
-  padding: 20px 0;
-  color: #6b7280;
-  background: #f9fafb;
-  border-radius: 10px;
-  margin-bottom: 16px;
+/* 验证进度横幅 */
+.validating-banner {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: #6b7280;
+  background: #f0f9ff; border: 1px solid #bae6fd;
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;
 }
-.validating-state .spinner.small {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #e5e7eb;
-  border-top-color: #1a56db;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 8px;
+.v-spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid #93c5fd; border-top-color: #2563eb;
+  border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+}
+.empty-filter-hint {
+  text-align: center; padding: 20px; color: #6b7280; font-size: 13px;
+  background: #f9fafb; border-radius: 10px; margin-bottom: 8px;
 }
 .loading-state {
   text-align: center; padding: 40px 0; color: #6b7280;

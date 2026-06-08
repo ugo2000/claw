@@ -266,7 +266,13 @@ async function generateLeadsAI(params) {
   const messages = [
     {
       role: 'system',
-      content: `You are an expert B2B lead generation specialist for international trade. Your task is to find potential buyer companies based on the user's search query.
+      content: `You are an expert B2B lead generation specialist for Chinese exporters. Your task is to identify real companies that are ACTIVELY BUYING or importing the product/service described in the user's query.
+
+Focus on BUYERS and IMPORTERS, not manufacturers or exporters:
+- Distributors, wholesalers, retailers who import and resell
+- Companies that procure the product as raw material or components
+- Importers and trading companies in the target region
+- End-users with significant procurement volume (e.g. hotel chains buying towels)
 
 For each lead, output EXACTLY this JSON format (no markdown, no explanation):
 {
@@ -276,30 +282,29 @@ For each lead, output EXACTLY this JSON format (no markdown, no explanation):
       "country": "Country Code (e.g. USA, DE, VN)",
       "region": "Region code (na/eu/sea/me/latam/africa)",
       "industry": "Industry description",
-      "desc": "Brief company profile (2-3 sentences about what they do, their scale, procurement needs). Be realistic but note these are AI-generated leads for prospecting.",
+      "desc": "2-3 sentences: what they import/buy, their scale, why they are a good prospect for this product. Be specific about their procurement needs.",
       "score": 85,
-      "email": "procurement@domain.com (best guess or placeholder)",
-      "website": "https://www.companyname.com (MUST be a real, accessible website - verify before outputting)"
+      "email": "procurement@domain.com or info@domain.com (use real domain)",
+      "website": "https://www.companywebsite.com (must be a real, existing website)"
     }
   ]
 }
 
 Rules:
 - Return ${count} leads maximum
-- Companies should be realistic and relevant to the search query
-- Score should be between 60-95 based on relevance to the query
-- desc must be specific and useful for sales outreach
-- Use real company names and websites that actually exist (search the web if unsure, do NOT make up fake domains like domain.com or example.com)
-- website MUST be a real, accessible URL starting with https:// (verify before outputting)
-- email should be realistic - use info@, sales@, procurement@ based on real company domains
-- If the query is vague, make reasonable assumptions
+- Focus exclusively on BUYERS/IMPORTERS of the described product, NOT sellers or manufacturers
+- Score 60-95 based on how likely they are to purchase this specific product
+- desc must explain WHY this company would buy the product (their procurement need)
+- Use real company names and real website domains that actually exist
+- Do NOT invent fake domains or use example.com / placeholder.com
+- email: use realistic addresses based on the company's real domain
 - OUTPUT ONLY THE JSON, nothing else${excludeHint}`,
     },
     {
       role: 'user',
-      content: `${regionHint}${industryHint}Search query: "${keyword}"
+      content: `${regionHint}${industryHint}I am a Chinese exporter looking to sell: "${keyword}"
 
-Find ${count} potential buyer/importer/distributor companies that match this search. These are for cold email outreach.`,
+Find ${count} overseas companies (importers / buyers / distributors) who would realistically purchase this product. Focus on companies with active procurement needs.`,
     },
   ]
 
@@ -399,28 +404,10 @@ Description: ${lead.desc}`,
 
 
 /**
- * 统一 lead 生成入口
- * 优先使用免费真实数据源（Wikidata SPARQL），失败则 fallback 到 AI 生成
+ * 统一 lead 生成入口 — 直接使用 AI 生成
+ * Wikidata 方案（按公司名关键词匹配）不适合外贸找买家场景，已禁用
  */
 export async function generateLeads(params) {
-  const { keyword, region = '', industry = '', count = 10, exclude = [] } = params
-
-  // 尝试免费 Wikidata 真实数据源
-  if (config.enableFreeDataSources !== false) {
-    try {
-      const wikidataLeads = await fetchFromWikidata({ keyword, region, industry, count, exclude })
-      if (wikidataLeads && wikidataLeads.length > 0) {
-        return {
-          leads: wikidataLeads,
-          usage: { source: 'wikidata', count: wikidataLeads.length }
-        }
-      }
-    } catch (e) {
-      console.warn('[generateLeads] Wikidata failed, falling back to AI:', e.message)
-    }
-  }
-
-  // Fallback 到 AI 生成
   return await generateLeadsAI(params)
 }
 

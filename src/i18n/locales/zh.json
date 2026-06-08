@@ -76,7 +76,22 @@
     "close": "关闭",
     "targetCompany": "目标公司：",
     "urlWarning": "网址可能不准确（AI生成）",
-    "emailPlaceholder": "邮箱可能是占位符"
+    "emailPlaceholder": "邮箱可能是占位符",
+    "verifying": "正在验证网站和邮箱...",
+    "verifiedOnly": "仅显示已验证邮箱",
+    "noVerifiedOnPage": "本页没有已验证邮箱的客户，请关闭筛选或加载下一页",
+    "resultsCount": "条结果",
+    "page": "第",
+    "prev": "上一页",
+    "next": "下一页",
+    "clear": "清空",
+    "savedLabel": "✅ 已保存",
+    "reportInvalid": "无效",
+    "emailTipInvalid": "❌ 邮箱格式无效",
+    "emailTipVerified": "✅ 邮箱域名已验证（找到MX记录）",
+    "emailTipUncertain": "⚠️ 邮箱无法验证（网络问题或超时）",
+    "emailTipNoMx": "❌ 邮箱域名没有MX记录",
+    "emailTipChecking": "🔄 正在验证邮箱..."
   },
   "email": {
     "title": "AI 开发信生成",
