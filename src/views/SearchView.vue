@@ -57,15 +57,19 @@
       <div class="spinner small"></div>
       <p>Verifying websites & emails...</p>
     </div>
-    <template v-else-if="results.length">
+    <template v-else-if="displayResults.length">
         <div class="result-header-bar">
           <p class="result-count">
             {{ searchStore.allResults.length }} results | Page {{ searchStore.currentPage + 1 }} of {{ searchStore.totalPages }}
           </p>
+          <label class="filter-verified">
+            <input type="checkbox" v-model="onlyVerifiedEmails" />
+            Verified emails only
+          </label>
           <button v-if="results.length" class="clear-results" @click="clearResults">&times; Clear</button>
         </div>
         <div class="results-list">
-          <div v-for="(item, index) in results" :key="item.company + '-' + index" class="result-card">
+          <div v-for="(item, index) in displayResults" :key="item.company + '-' + index" class="result-card">
             <div class="result-header">
               <h3>{{ item.company }}</h3>
               <span :class="['region-badge', `badge-${item.region || 'na'}`]">
@@ -149,7 +153,7 @@
         </div>
 
         <!-- Pagination Controls -->
-        <div class="pagination-bar">
+        <div class="pagination-bar" v-if="results.length">
           <button
             class="page-btn prev"
             :disabled="searchStore.currentPage <= 0"
@@ -173,6 +177,9 @@
           </button>
         </div>
       </template>
+      <div v-else-if="onlyVerifiedEmails && results.length && !displayResults.length" class="empty-results">
+        <p>&#128269; No verified-email leads on this page. Try turning off the filter or load the next page.</p>
+      </div>
       <div v-else-if="!isSearching && !isLoadingNext" class="empty-results">
         <p>&#128533; {{ $t('search.noResults') }}</p>
       </div>
@@ -199,7 +206,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCreditsStore } from '../stores/credits'
 import { useSearchStore } from '../stores/search'
@@ -225,6 +232,15 @@ const isAnalyzing = ref('')
 const analysisResult = ref('')
 const analysisTarget = ref('')
 const isValidating = ref(false)   // 网站/邮箱验证中
+const onlyVerifiedEmails = ref(false)  // 仅显示邮箱已验证的结果
+
+// 计算属性：根据开关过滤显示结果
+const displayResults = computed(() => {
+  if (!onlyVerifiedEmails.value) return results.value
+  return results.value.filter(
+    l => l.email && l._emailValid !== false && l._emailReachable === true
+  )
+})
 
 // Region name mapping
 function tRegion(code) {
@@ -561,7 +577,15 @@ async function copyAnalysis() {
   margin: 0 auto 12px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.result-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.result-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
+.filter-verified {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: #059669; font-weight: 500; cursor: pointer;
+  background: #ecfdf5; border: 1px solid #a7f3d0;
+  padding: 3px 10px; border-radius: 20px;
+  user-select: none;
+}
+.filter-verified input[type="checkbox"] { width: 13px; height: 13px; accent-color: #059669; cursor: pointer; }
 .result-count { font-size: 13px; color: #6b7280; margin: 0; }
 .clear-results {
   background: none; border: none; color: #9ca3af; font-size: 13px; cursor: pointer; padding: 4px 8px;
