@@ -134,7 +134,7 @@
               <div class="result-actions">
                 <button
                   class="analyze-btn"
-                  @click.stop="analyzeClient(item)"
+                  @click.stop="handleAnalyzeClient(item)"
                   :disabled="isAnalyzing === item.company"
                 >
                   {{ isAnalyzing === item.company ? $t('search.analyzing') : $t('search.aiAnalyze') }}
@@ -522,7 +522,7 @@ function reportInvalid(item, _index) {
   results.value = searchStore.results
 }
 
-async function analyzeClient(item) {
+async function handleAnalyzeClient(item) {
   const costResult = credits.deduct(10, `${t('search.analysisTitle')} - ${item.company}`)
   if (!costResult.success) {
     alert(costResult.message)
