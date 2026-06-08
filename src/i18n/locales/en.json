@@ -103,7 +103,9 @@
     "emailTipVerified": "✅ Email domain verified (MX record found)",
     "emailTipUncertain": "⚠️ Could not verify this email — network issue or timeout",
     "emailTipNoMx": "❌ No MX record found for this email domain",
-    "emailTipChecking": "🔄 Verifying email..."
+    "emailTipChecking": "🔄 Verifying email...",
+    "sourceReal": "🔍 Real Search",
+    "sourceAi": "🤖 AI Generated"
   },
   "email": {
     "title": "AI Email Generator",

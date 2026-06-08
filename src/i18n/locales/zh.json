@@ -103,7 +103,9 @@
     "emailTipVerified": "✅ 邮箱域名已验证（找到MX记录）",
     "emailTipUncertain": "⚠️ 邮箱无法验证（网络问题或超时）",
     "emailTipNoMx": "❌ 邮箱域名没有MX记录",
-    "emailTipChecking": "🔄 正在验证邮箱..."
+    "emailTipChecking": "🔄 正在验证邮箱...",
+    "sourceReal": "🔍 真实搜索",
+    "sourceAi": "🤖 AI生成"
   },
   "email": {
     "title": "AI 开发信生成",

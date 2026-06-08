@@ -65,6 +65,13 @@
           <p class="result-count">
             {{ searchStore.allResults.length }} {{ $t('search.resultsCount') }} | {{ $t('search.page') }} {{ searchStore.currentPage + 1 }} {{ $t('search.pageOf') }} {{ searchStore.totalPages }}{{ $t('search.pageSuffix') }}
           </p>
+          <!-- 数据来源标识 -->
+          <span v-if="results[0]?._source === 'serpapi'" class="source-badge real">
+            &#127760; {{ $t('search.sourceReal') }}
+          </span>
+          <span v-else-if="results[0]" class="source-badge ai">
+            &#129302; {{ $t('search.sourceAi') }}
+          </span>
           <label class="filter-verified">
             <input type="checkbox" v-model="onlyVerifiedEmails" />
             {{ $t('search.verifiedOnly') }}
@@ -587,6 +594,12 @@ async function copyAnalysis() {
   user-select: none;
 }
 .filter-verified input[type="checkbox"] { width: 13px; height: 13px; accent-color: #059669; cursor: pointer; }
+.source-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px;
+}
+.source-badge.real { color: #0369a1; background: #e0f2fe; border: 1px solid #bae6fd; }
+.source-badge.ai { color: #7c3aed; background: #ede9fe; border: 1px solid #c4b5fd; }
 .result-count { font-size: 13px; color: #6b7280; margin: 0; }
 .clear-results {
   background: none; border: none; color: #9ca3af; font-size: 13px; cursor: pointer; padding: 4px 8px;

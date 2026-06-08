@@ -4,7 +4,7 @@
  */
 import config from '../config/api.js'
 import { normalizeUrl, normalizeEmail } from '../utils/validators'
-import { fetchFromWikidata } from './wikidata.js'
+import { searchRealLeads } from './serpapi'
 
 /**
  * 调用 DeepSeek Chat API
@@ -404,10 +404,24 @@ Description: ${lead.desc}`,
 
 
 /**
- * 统一 lead 生成入口 — 直接使用 AI 生成
- * Wikidata 方案（按公司名关键词匹配）不适合外贸找买家场景，已禁用
+ * 统一 lead 生成入口
+ * 优先使用 SerpAPI（真实 Google 搜索结果），失败则 fallback 到 AI 生成
  */
 export async function generateLeads(params) {
+  // 尝试 SerpAPI 真实数据源
+  try {
+    const serpResult = await searchRealLeads(params)
+    if (serpResult.leads && serpResult.leads.length > 0) {
+      console.log(`[generateLeads] 使用 SerpAPI 真实数据: ${serpResult.leads.length} 条`)
+      return serpResult
+    }
+    console.warn('[generateLeads] SerpAPI 返回空结果，fallback 到 AI')
+  } catch (e) {
+    // API Key 未配置或请求失败，降级到 AI
+    console.warn('[generateLeads] SerpAPI 失败，fallback 到 AI:', e.message)
+  }
+
+  // Fallback: AI 生成
   return await generateLeadsAI(params)
 }
 
