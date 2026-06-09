@@ -10,7 +10,8 @@
  * → 返回真实数据，非AI虚构
  */
 
-const SERP_API_KEY = import.meta.env.VITE_SERP_API_KEY || ''
+// 优先读环境变量（开发模式），fallback 到内嵌 key（生产/App 打包）
+const SERP_API_KEY = import.meta.env.VITE_SERP_API_KEY || '5d15ea1c5bfe916160a769c67bd61715315b9f443ebd2ea98eb57c15c74911de'
 const SERP_BASE_URL = 'https://serpapi.com/search'
 
 /**

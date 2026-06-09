@@ -6,7 +6,7 @@ const config = {
   // DeepSeek API 配置
   deepseek: {
     baseUrl: 'https://api.deepseek.com/v1',
-    apiKey: import.meta.env.VITE_DEEPSEEK_API_KEY || '',
+    apiKey: import.meta.env.VITE_DEEPSEEK_API_KEY || 'sk-e261c9efb9bc41a5b615b2609ce3fc4a',
     // 推荐用 deepseek-chat（便宜、快、中文强）
     model: 'deepseek-chat',
     // 备选：deepseek-reasoner（推理更强，但更贵更慢）
