@@ -30,6 +30,13 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Create .env file from secrets
+        shell: bash
+        run: |
+          echo "VITE_DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" > .env
+          echo "VITE_SERP_API_KEY=${{ secrets.SERP_API_KEY }}" >> .env
+          echo ".env created ($(wc -l < .env) lines)"
+
       - name: Install dependencies
         run: npm ci || npm install
 
@@ -41,6 +48,51 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync android
+
+      - name: Apply Android network security config
+        run: |
+          python3 - << 'PYEOF'
+          import os, re
+
+          # 1. Create network_security_config.xml
+          xml_dir = "android/app/src/main/res/xml"
+          os.makedirs(xml_dir, exist_ok=True)
+          config_path = os.path.join(xml_dir, "network_security_config.xml")
+          config_content = """<?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+              <domain-config cleartextTrafficPermitted="true">
+                  <domain includeSubdomains="true">localhost</domain>
+                  <domain includeSubdomains="true">10.0.2.2</domain>
+              </domain-config>
+              <domain-config>
+                  <domain includeSubdomains="true">serpapi.com</domain>
+                  <domain includeSubdomains="true">api.deepseek.com</domain>
+                  <trust-anchors>
+                      <certificates src="system" />
+                  </trust-anchors>
+              </domain-config>
+          </network-security-config>
+          """
+          with open(config_path, "w", encoding="utf-8") as f:
+              f.write(config_content)
+          print(f"Created: {config_path}")
+
+          # 2. Patch AndroidManifest.xml to add networkSecurityConfig
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r", encoding="utf-8") as f:
+              content = f.read()
+          if "networkSecurityConfig" not in content:
+              content = content.replace(
+                  "<application",
+                  '<application android:networkSecurityConfig="@xml/network_security_config"',
+                  1
+              )
+              with open(manifest_path, "w", encoding="utf-8") as f:
+                  f.write(content)
+              print("Patched AndroidManifest.xml with networkSecurityConfig")
+          else:
+              print("networkSecurityConfig already present, skipping patch")
+          PYEOF
 
       - name: Install Pillow for icon generation
         run: pip install pillow -q
