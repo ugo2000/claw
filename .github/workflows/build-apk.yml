@@ -30,12 +30,23 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Create .env file from secrets
+      - name: Create .env file
         shell: bash
         run: |
-          echo "VITE_DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" > .env
-          echo "VITE_SERP_API_KEY=${{ secrets.SERP_API_KEY }}" >> .env
-          echo ".env created ($(wc -l < .env) lines)"
+          # Try secrets first, fallback to hardcoded values for CI
+          DEEPSEEK_KEY="${{ secrets.DEEPSEEK_API_KEY }}"
+          SERP_KEY="${{ secrets.SERP_API_KEY }}"
+          # Fallback to hardcoded if secrets not configured
+          if [ -z "$DEEPSEEK_KEY" ]; then
+            DEEPSEEK_KEY="sk-e261c9efb9bc41a5b615b2609ce3fc4a"
+          fi
+          if [ -z "$SERP_KEY" ]; then
+            SERP_KEY="5d15ea1c5bfe916160a769c67bd61715315b9f443ebd2ea98eb57c15c74911de"
+          fi
+          echo "VITE_DEEPSEEK_API_KEY=${DEEPSEEK_KEY}" > .env
+          echo "VITE_SERP_API_KEY=${SERP_KEY}" >> .env
+          echo ".env created:"
+          cat .env | sed 's/=.*/=***/' 
 
       - name: Install dependencies
         run: npm ci || npm install
