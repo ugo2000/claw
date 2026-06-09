@@ -14,6 +14,9 @@
 const SERP_API_KEY = import.meta.env.VITE_SERP_API_KEY || '5d15ea1c5bfe916160a769c67bd61715315b9f443ebd2ea98eb57c15c74911de'
 const SERP_BASE_URL = 'https://serpapi.com/search'
 
+// 原生 HTTP 桥接：Capacitor App 用 Java 发请求，浏览器/dev 用原生 fetch
+import { nativeFetch } from './nativeHttp.js'
+
 /**
  * 根据用户关键词和地区构造 Google 搜索查询
  */
@@ -163,19 +166,8 @@ export async function searchRealLeads(params) {
 
   console.log(`[SerpAPI] fetch: ${isDev ? '(dev proxy)' : fetchUrl.replace(SERP_API_KEY, '***')}`)
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 15000)
-  let response
-  try {
-    response = await fetch(fetchUrl, { signal: controller.signal })
-    clearTimeout(timeoutId)
-  } catch (netErr) {
-    clearTimeout(timeoutId)
-    const msg = netErr.name === 'AbortError'
-      ? 'SerpAPI 请求超时（15秒），请检查网络连接'
-      : `SerpAPI 网络错误：${netErr.message || '未知错误'}`
-    throw new Error(msg)
-  }
+  // 使用 nativeFetch（Capacitor App 走 Java 原生，浏览器/dev 走原生 fetch）
+  const response = await nativeFetch(fetchUrl)
   if (!response.ok) {
     throw new Error(`SerpAPI 错误: HTTP ${response.status}`)
   }

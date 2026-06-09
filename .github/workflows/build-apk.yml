@@ -60,6 +60,108 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Inject NativeHttp plugin (Android)
+        shell: bash
+        run: |
+          PLUGIN_DIR="android/app/src/main/java/com/ugoclaw/app/plugins"
+          mkdir -p "$PLUGIN_DIR"
+          cat > "$PLUGIN_DIR/NativeHttp.java" << 'JAVAEOF'
+          package com.ugoclaw.app.plugins;
+
+          import android.util.Log;
+          import com.getcapacitor.JSObject;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+          import com.getcapacitor.annotation.Permission;
+
+          import java.io.BufferedReader;
+          import java.io.DataOutputStream;
+          import java.io.InputStream;
+          import java.io.InputStreamReader;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.util.concurrent.Executors;
+
+          @CapacitorPlugin(name = "NativeHttp")
+          public class NativeHttp extends Plugin {
+
+              private static final String TAG = "NativeHttp";
+
+              @Permission
+              public void request(PluginCall call) {
+                  String urlStr = call.getString("url");
+                  String method = call.getString("method", "GET");
+                  JSObject headersObj = call.getObject("headers", new JSObject());
+                  String body = call.getString("body");
+
+                  if (urlStr == null || urlStr.isEmpty()) {
+                      call.reject("URL is required");
+                      return;
+                  }
+
+                  Executors.newSingleThreadExecutor().execute(() -> {
+                      try {
+                          URL url = new URL(urlStr);
+                          HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                          try {
+                              conn.setRequestMethod(method);
+                              conn.setConnectTimeout(15000);
+                              conn.setReadTimeout(30000);
+                              conn.setInstanceFollowRedirects(true);
+
+                              // Set headers
+                              for (String key : headersObj.keys()) {
+                                  conn.setRequestProperty(key, headersObj.getString(key));
+                              }
+
+                              // Set body for POST/PUT
+                              if (body != null && (method.equalsIgnoreCase("POST") || method.equalsIgnoreCase("PUT"))) {
+                                  conn.setDoOutput(true);
+                                  try (DataOutputStream os = new DataOutputStream(conn.getOutputStream())) {
+                                      os.writeBytes(body);
+                                      os.flush();
+                                  }
+                              }
+
+                              int status = conn.getResponseCode();
+
+                              // Read response
+                              InputStream is = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                              StringBuilder response = new StringBuilder();
+                              if (is != null) {
+                                  BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                                  String line;
+                                  while ((line = reader.readLine()) != null) {
+                                      response.append(line);
+                                  }
+                                  reader.close();
+                              }
+
+                              JSObject result = new JSObject();
+                              result.put("status", status);
+                              result.put("body", response.toString());
+                              result.put("ok", status >= 200 && status < 300);
+
+                              Log.d(TAG, "Request OK: " + urlStr + " → HTTP " + status);
+                              call.resolve(result);
+
+                          } finally {
+                              conn.disconnect();
+                          }
+                      } catch (Exception e) {
+                          Log.e(TAG, "Request failed: " + urlStr, e);
+                          JSObject err = new JSObject();
+                          err.put("error", e.getClass().getSimpleName());
+                          err.put("message", e.getMessage());
+                          call.reject(e.getMessage(), err);
+                      }
+                  });
+              }
+          }
+          JAVAEOF
+          echo "NativeHttp.java injected to $PLUGIN_DIR"
+
       - name: Apply Android network security config
         run: |
           python3 - << 'PYEOF'

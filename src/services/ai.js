@@ -5,6 +5,7 @@
 import config from '../config/api.js'
 import { normalizeUrl, normalizeEmail } from '../utils/validators'
 import { searchRealLeads } from './serpapi'
+import { nativeFetch } from './nativeHttp.js'
 
 /**
  * 调用 DeepSeek Chat API
@@ -32,27 +33,14 @@ async function callDeepseek(messages, options = {}) {
     ? '/api/deepseek/v1/chat/completions'
     : `${baseUrl}/chat/completions`
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 30000)
-  let response
-  try {
-    response = await fetch(fetchUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(params),
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-  } catch (netErr) {
-    clearTimeout(timeoutId)
-    const msg = netErr.name === 'AbortError'
-      ? 'AI 请求超时（30秒），请检查网络连接'
-      : `AI 网络错误：${netErr.message || '未知错误'}`
-    throw new Error(msg)
-  }
+  const response = await nativeFetch(fetchUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(params),
+  })
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
