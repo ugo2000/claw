@@ -5,7 +5,9 @@ const config: CapacitorConfig = {
   appName: '贸虾 UgoClaw',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
+    // androidScheme: 'https' 会导致 WebView 以 https 协议加载本地页面，
+    // 某些 Android 版本会拦截 fetch() 外部 HTTPS 请求，导致 failed to fetch。
+    // 改为默认 scheme（capacitor://），避免此问题。
   },
   plugins: {
     SplashScreen: {

@@ -163,7 +163,19 @@ export async function searchRealLeads(params) {
 
   console.log(`[SerpAPI] fetch: ${isDev ? '(dev proxy)' : fetchUrl.replace(SERP_API_KEY, '***')}`)
 
-  const response = await fetch(fetchUrl)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
+  let response
+  try {
+    response = await fetch(fetchUrl, { signal: controller.signal })
+    clearTimeout(timeoutId)
+  } catch (netErr) {
+    clearTimeout(timeoutId)
+    const msg = netErr.name === 'AbortError'
+      ? 'SerpAPI 请求超时（15秒），请检查网络连接'
+      : `SerpAPI 网络错误：${netErr.message || '未知错误'}`
+    throw new Error(msg)
+  }
   if (!response.ok) {
     throw new Error(`SerpAPI 错误: HTTP ${response.status}`)
   }

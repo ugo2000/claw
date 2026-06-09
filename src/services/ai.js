@@ -32,14 +32,27 @@ async function callDeepseek(messages, options = {}) {
     ? '/api/deepseek/v1/chat/completions'
     : `${baseUrl}/chat/completions`
 
-  const response = await fetch(fetchUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(params),
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
+  let response
+  try {
+    response = await fetch(fetchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(params),
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+  } catch (netErr) {
+    clearTimeout(timeoutId)
+    const msg = netErr.name === 'AbortError'
+      ? 'AI 请求超时（30秒），请检查网络连接'
+      : `AI 网络错误：${netErr.message || '未知错误'}`
+    throw new Error(msg)
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
