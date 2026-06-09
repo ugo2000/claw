@@ -1,73 +1,57 @@
-/**
- * Native HTTP bridge — 在 Capacitor App 里用原生代码发 HTTP 请求
- * 绕过 Android WebView 的网络限制（CORS、SSL、scheme 等）
- *
- * 使用方式（与 fetch() 兼容）：
- *   import { nativeFetch } from './nativeHttp.js'
- *   const res = await nativeFetch('https://serpapi.com/...')
- *   const data = await res.json()
- */
+// nativeHttp.js — 统一 HTTP 层
+// Capacitor App 环境：走原生 Java HttpURLConnection（绕过 WebView 限制）
+// 浏览器 / dev 环境：走原生 window.fetch()
 
 import { Capacitor } from '@capacitor/core'
-import { registerPlugin } from '@capacitor/core'
 
-// 注册原生插件（与 Android 端 NativeHttp.java 对应）
-const NativeHttp = registerPlugin('NativeHttp')
+const isNative = Capacitor.isNativePlatform()
 
 /**
- * 判断当前是否运行在原生 App 中
+ * 统一 HTTP 请求
+ * @param {string} url
+ * @param {object} [opts] - { method, headers, body }
+ * @returns {Promise<{ ok: boolean, status: number, json(): Promise }>}
  */
-export function isNativeApp() {
-  return Capacitor.isNativePlatform()
-}
-
-/**
- * 原生 fetch 封装 — 与 window.fetch() 保持兼容
- *
- * @param {string} url - 请求 URL
- * @param {Object} [options] - 标准 fetch options
- * @returns {Promise<{ok: boolean, status: number, json(): Promise, text(): Promise}>}
- */
-export async function nativeFetch(url, options = {}) {
-  // 非原生环境：直接用浏览器 fetch
-  if (!isNativeApp()) {
-    return window.fetch(url, options)
-  }
-
-  // === 原生环境：通过 Java 插件发请求 ===
-  const method = (options?.method || 'GET').toUpperCase()
-
-  // 构造 headers 对象
-  const headers = {}
-  if (options?.headers) {
-    if (options.headers instanceof Headers) {
-      options.headers.forEach((v, k) => { headers[k] = v })
-    } else if (typeof options.headers === 'object') {
-      Object.assign(headers, options.headers)
-    }
-  }
-
-  // 获取 body 字符串
-  let body = undefined
-  if (options?.body) {
-    body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body)
-  }
-
-  console.log(`[NativeHttp] ${method} ${url}`)
-
-  try {
-    const result = await NativeHttp.request({ url, method, headers, body })
-
+export async function nativeFetch(url, opts = {}) {
+  if (!isNative) {
+    // 浏览器 / dev：直接用 fetch
+    const response = await window.fetch(url, opts)
+    const text = await response.text()
     return {
-      ok: result.ok,
-      status: result.status,
-      async json() { return JSON.parse(result.body) },
-      async text() { return result.body },
+      ok: response.ok,
+      status: response.status,
+      json: async () => JSON.parse(text),
+      text: async () => text,
     }
-  } catch (err) {
-    console.error('[NativeHttp] Error:', err)
-    throw new Error(err.message || 'Native HTTP request failed')
+  }
+
+  // Native App：通过 Capacitor 插件桥接调用 Java
+  const NativeHttp = Capacitor.getPlugin('NativeHttp') || Capacitor.plugins.NativeHttp
+  if (!NativeHttp) {
+    throw new Error('NativeHttp plugin not registered. Please rebuild the App.')
+  }
+
+  const method = (opts.method || 'GET').toUpperCase()
+  const headersObj = {}
+  if (opts.headers) {
+    for (const [k, v] of Object.entries(opts.headers)) {
+      headersObj[k] = String(v)
+    }
+  }
+
+  const result = await NativeHttp.request({
+    url,
+    method,
+    headers: headersObj,
+    body: opts.body || null,
+  })
+
+  // 把 Java 返回的结果包装成和 fetch() 兼容的形状
+  const responseBody = result.body || ''
+  return {
+    ok: result.ok,
+    status: result.status,
+    json: async () => JSON.parse(responseBody),
+    text: async () => responseBody,
   }
 }
-
-export default { nativeFetch, isNativeApp }
