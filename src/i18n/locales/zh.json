@@ -65,6 +65,7 @@
     "costInfo": "（每次消耗 2 积分）",
     "resultCount": "为「{query}」找到 {count} 个询盘",
     "noResults": "未找到相关询盘，试试不同的产品关键词",
+    "recentInquiry": "最近一周询盘",
     "matchScore": "匹配度 {score}%",
     "aiAnalyze": "AI 分析",
     "analyzing": "分析中...",

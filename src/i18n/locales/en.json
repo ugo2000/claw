@@ -65,6 +65,7 @@
     "costInfo": "(2 credits per search)",
     "resultCount": "{count} inquiries found for: \"{query}\"",
     "noResults": "No inquiries found. Try different product keywords",
+    "recentInquiry": "Recent Inquiry (Past Week)",
     "matchScore": "Match {score}%",
     "aiAnalyze": "AI Analysis",
     "analyzing": "Analyzing...",

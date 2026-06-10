@@ -2,12 +2,13 @@
  * SerpAPI 集成 — 搜索真实买家询盘/RFQ/采购需求
  *
  * 目标：找到真实的询盘（询盘 = buyer inquiry / RFQ / buying request）
- * 而不是公司官网首页
+ * 而不是 B2B 平台聚合页
  *
  * 搜索策略：
- *   1. 用 Google 搜索含 "want to buy" / "inquiry" / "RFQ" / "sourcing" 的页面
- *   2. 优先返回询盘页面、采购需求帖子、B2B 平台公开询盘
- *   3. 从 snippet 中提取询盘详情（产品、数量、联系方式）
+ *   1. 用 Google 搜索含询盘关键词的页面
+ *   2. 用 -site: 排除所有 B2B 平台域名（非常激进）
+ *   3. 只返回真实买家自己的页面
+ *   4. 加 tbs=qdr:w 只取最近一周的询盘（最新在前）
  */
 
 // 优先读环境变量（开发模式），fallback 到内嵌 key（生产/App 打包）
@@ -18,17 +19,55 @@ const SERP_BASE_URL = 'https://serpapi.com/search'
 import { nativeFetch } from './nativeHttp.js'
 
 /**
- * 构造搜索查询 —— 重点搜索真实买家询盘，排除 B2B 平台聚合页
- *
- * 搜索策略：
- *   1. 用 Google 搜索含询盘关键词的页面
- *   2. 用 -site: 排除 B2B 平台（Alibaba/IndiaMART 等）
- *   3. 优先返回真实买家自己的页面（公司采购页、论坛帖、LinkedIn 动态）
+ * 所有需要排除的 B2B 平台域名（完整列表，非常激进）
+ * 这些平台的 RFQ/采购频道页不是真实买家询盘
+ */
+const EXCLUDED_PLATFORMS = [
+  // 中国平台
+  'alibaba.com',
+  '1688.com',
+  'made-in-china.com',
+  'globalsources.com',
+  'hkinstruments.com',
+  '86trade.com',
+  'chinax.com',
+  'tradechina.com',
+  // 印度平台
+  'indiamart.com',
+  'tradeindia.com',
+  'exportersindia.com',
+  'justdial.com',
+  'zaubacorp.com',
+  'machinediriectory.in',
+  'exporthub.com',
+  // 韩国/土耳其
+  'ec21.com',
+  'ecplaza.net',
+  'tradekorea.com',
+  'thomasnet.com',
+  // 欧美平台
+  'dhgate.com',
+  'thomasnet.com',
+  'kinja.com',
+  'fiverr.com',
+  'upwork.com',
+  // 综合性
+  'amazon.com/buyer',
+  'ebay.com/buyer',
+  'walmart.com/supplier',
+]
+
+/**
+ * 构造 Google 搜索查询
+ * 核心策略：
+ *   - 询盘关键词 OR 组合
+ *   - 排除所有 B2B 平台（-site:域名）
+ *   - tbs=qdr:w 只取最近一周（最新询盘优先）
  */
 function buildSearchQuery(keyword, region = '') {
   const kw = keyword.trim()
 
-  // 询盘相关词（Google 支持 OR，必须大写）
+  // 询盘关键词（Google 支持 OR，必须大写）
   const inquiryTerms = [
     '"want to buy"',
     '"inquiry"',
@@ -41,26 +80,16 @@ function buildSearchQuery(keyword, region = '') {
     '"looking for supplier"',
     '"need to buy"',
     '"seeking vendor"',
+    '"quotation required"',
+    '"send me your price"',
+    '"please quote"',
   ].join(' OR ')
 
-  // 排除 B2B 平台（这些平台的 RFQ 频道页不是真实买家询盘）
-  // 只用 -site:域名 排除整个域名下的 RFQ 聚合页
-  const excludeDomains = [
-    'alibaba.com',
-    'globalsources.com',
-    'made-in-china.com',
-    'indiamart.com',
-    'tradeindia.com',
-    'exportersindia.com',
-    'ec21.com',
-    'ecplaza.net',
-    'dhgate.com',
-    'thomasnet.com',
-    'justdial.com',
-  ].map(d => `-site:${d}`).join(' ')
+  // 构造 -site: 排除列表（非常激进）
+  const excludeSites = EXCLUDED_PLATFORMS.map(d => `-site:${d}`).join(' ')
 
-  // 构造查询：询盘词 + 产品词，排除平台
-  let query = `(${inquiryTerms}) "${kw}" ${excludeDomains}`
+  // 构造查询
+  let query = `(${inquiryTerms}) "${kw}" ${excludeSites}`
 
   if (region) {
     query += ` ${region}`
@@ -105,57 +134,30 @@ function inferEmails(domain) {
 }
 
 /**
- * 判断搜索结果是否为真实询盘/采购需求
- * 优先：包含询盘关键词的结果
- * 排除：零售平台、百科、社交媒体积
+ * 判断搜索结果是否为真实买家询盘（非平台聚合页）
+ *
+ * 核心原则：
+ *   ✅ 真实买家页面：公司采购页、论坛询盘帖、LinkedIn 买家动态
+ *   ❌ 平台聚合页：Alibaba RFQ 列表、IndiaMART 采购频道等
  */
 function isInquiryResult(title, snippet, link) {
   const text = (title + ' ' + snippet).toLowerCase()
+  const url = (link || '').toLowerCase()
 
-  // 排除项：非商业/非询盘页面（含平台聚合页）
+  // ========== 硬性排除：所有 B2B 平台域名 ==========
+  for (const domain of EXCLUDED_PLATFORMS) {
+    if (url.includes(domain)) return false
+  }
+
+  // 排除：非商业内容
   const exclude = [
-    'wikipedia', 'amazon.', 'ebay.', 'made-in-china.',
-    'youtube.com', 'facebook.com', 'linkedin.com/in/',
-    'reddit', 'quora', 'pinterest',
+    'wikipedia', 'youtube.com', 'facebook.com/in/', 'linkedin.com/in/',
+    'reddit.com', 'quora.com', 'pinterest.com',
     '.pdf', 'file:', 'javascript:',
     'home page', 'welcome to', 'about us', 'our company',
+    'login', 'sign up', 'register', 'cart', 'checkout',
   ]
   if (exclude.some(e => text.includes(e))) return false
-
-  // ========== 硬性排除：B2B 平台聚合页（不是真实买家询盘）==========
-  // 这些页面是平台自己的求购频道，不是买家自己发的询盘帖
-  const url = (link || '').toLowerCase()
-  const platformPatterns = [
-    'alibaba.com/rfq', 'alibaba.com/inquiry', 'alibaba.com/buying-request', 'alibaba.com/sourcing',
-    'made-in-china.com/rfq', 'made-in-china.com/inquiry', 'made-in-china.com/buying-request',
-    'globalsources.com/rfq', 'globalsources.com/inquiry',
-    'indiamart.com/rfq', 'indiamart.com/buy-lead', 'indiamart.com/buying-request',
-    'tradeindia.com/rfq', 'tradeindia.com/buyer', 'tradeindia.com/buying-request',
-    'exportersindia.com/buy-lead', 'exportersindia.com/rfq',
-    'justdial.com/rfq', 'justdial.com/buy-requirement',
-    'ec21.com/rfq', 'ec21.com/buying-request',
-    'ecplaza.net/rfq', 'ecplaza.net/buying-request',
-    'thomasnet.com/rfq', 'thomasnet.com/buying-request',
-    'dhgate.com/rfq', 'dhgate.com/buying-request',
-  ]
-  for (const pattern of platformPatterns) {
-    if (url.includes(pattern)) return false
-  }
-
-  // 排除：平台域名 + RFQ/询盘路径（动态检测）
-  const platformDomains = [
-    'alibaba.com', 'globalsources.com', 'made-in-china.com',
-    'indiamart.com', 'tradeindia.com', 'exportersindia.com',
-    'ec21.com', 'ecplaza.net', 'dhgate.com', 'thomasnet.com',
-  ]
-  const platformRfqPaths = ['/rfq', '/inquiry', '/buying-request', '/sourcing', '/buy-lead', '/buyer', '/request-for-quotation']
-  for (const domain of platformDomains) {
-    if (url.includes(domain)) {
-      if (platformRfqPaths.some(p => url.includes(p))) return false
-      // 平台产品页也不是询盘
-      if (url.includes('/product/') || url.includes('/p/')) return false
-    }
-  }
 
   // ========== 正向判断：真实询盘特征 ==========
   const inquiryKeywords = [
@@ -167,6 +169,8 @@ function isInquiryResult(title, snippet, link) {
     'we are looking to buy', 'we need', 'we are in need of',
     'seeking supplier', 'sourcing for', 'procurement requirement',
     'buyer looking for', 'purchase inquiry', 'buying inquiry',
+    'we require', 'we are interested in', 'looking to purchase',
+    'requirement for', 'looking to source', 'need quotation for',
   ]
   const hasInquiry = inquiryKeywords.some(e => text.includes(e))
   if (hasInquiry) return true
@@ -176,11 +180,11 @@ function isInquiryResult(title, snippet, link) {
     '/contact', '/inquiry', '/rfq', '/buying-request', '/sourcing',
     '/procurement', '/purchase', '/quote', '/request-quote',
     '/buy', '/order', '/get-quote', '/request-quote',
+    '/contact-us', '/request-for-quotation', '/enquiry',
   ]
   const hasInquiryPath = inquiryPaths.some(p => url.includes(p))
-  // 但必须不是平台域名
-  const isPlatform = platformDomains.some(d => url.includes(d))
-  if (hasInquiryPath && !isPlatform) return true
+  // 但必须不是平台域名（上面已经排除了）
+  if (hasInquiryPath) return true
 
   return false
 }
@@ -204,7 +208,7 @@ function extractInquiryDetails(title, snippet) {
   if (productMatch) {
     result.product = productMatch[1].trim()
   } else {
-    // 取标题前 60 个字符作为产品描述
+    // 取标题前 80 个字符作为产品描述
     result.product = title.trim().substring(0, 80)
   }
 
@@ -228,13 +232,13 @@ function extractInquiryDetails(title, snippet) {
  */
 function extractCompanyFromResult(title, link) {
   // B2B 平台询盘：标题通常是产品名，公司名在链接或 snippet 中
-  if (link.includes('alibaba.com') || link.includes('globalsources.com')) {
-    // 从域名提取
-    const domain = extractDomain(link)
-    if (domain) {
-      const parts = domain.split('.')
-      if (parts.length >= 2) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
-    }
+  // 但我们已经排除了所有 B2B 平台，所以这里只处理普通公司网站
+
+  // 从域名提取公司名
+  const domain = extractDomain(link)
+  if (domain) {
+    const parts = domain.split('.')
+    if (parts.length >= 2) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
   }
 
   // 普通公司网站：从标题提取公司名
@@ -296,12 +300,24 @@ export async function searchRealLeads(params) {
 
   console.log(`[SerpAPI] 询盘搜索: ${query}`)
 
+  // 构造 SerpAPI URL（加 tbs=qdr:w 取最近一周，最新询盘）
   const isDev = import.meta.env.DEV
+  const serpParams = new URLSearchParams({
+    engine: 'google',
+    q: query,
+    num: String(count + 10),
+    hl: 'en',
+    gl: 'us',
+    api_key: SERP_API_KEY,
+    // 只取最近一周的结果（最新询盘优先）
+    tbs: 'qdr:w',
+  })
+
   let fetchUrl
   if (isDev) {
-    fetchUrl = `/api/serpapi/search?engine=google&q=${encodeURIComponent(query)}&num=${count + 10}&hl=en&gl=us&api_key=${SERP_API_KEY}`
+    fetchUrl = `/api/serpapi/search?${serpParams.toString()}`
   } else {
-    fetchUrl = `${SERP_BASE_URL}?engine=google&q=${encodeURIComponent(query)}&num=${count + 10}&hl=en&gl=us&api_key=${SERP_API_KEY}`
+    fetchUrl = `${SERP_BASE_URL}?${serpParams.toString()}`
   }
 
   console.log(`[SerpAPI] fetch: ${isDev ? '(dev proxy)' : fetchUrl.replace(SERP_API_KEY, '***')}`)
@@ -325,7 +341,7 @@ export async function searchRealLeads(params) {
   const results = data.organic_results || []
   console.log(`[SerpAPI] 返回 ${results.length} 条结果`)
 
-  // 过滤并转换为 leads 格式（优先询盘结果）
+  // 过滤并转换为 leads 格式（只保留真实询盘）
   const leads = []
   const excludedSet = new Set((exclude || []).map(e => e.toLowerCase()))
 
@@ -336,7 +352,7 @@ export async function searchRealLeads(params) {
     const companyName = extractCompanyFromResult(r.title, r.link)
     if (excludedSet.has(companyName.toLowerCase())) continue
 
-    // 判断是否为询盘结果
+    // 判断是否为真实询盘结果（非平台页）
     if (!isInquiryResult(r.title, r.snippet || '', r.link)) continue
 
     const domain = extractDomain(r.link)
@@ -368,9 +384,10 @@ export async function searchRealLeads(params) {
     if (leads.length >= count) break
   }
 
-  // 如果询盘结果太少（< 3条），也保留一些公司结果作为补充
+  // 如果真实询盘结果太少（< 3条），补充一些公司结果
+  // 但这些公司结果也必须是真实买家，不能是平台
   if (leads.length < 3) {
-    console.log(`[SerpAPI] 询盘结果仅 ${leads.length} 条，补充公司结果...`)
+    console.log(`[SerpAPI] 真实询盘结果仅 ${leads.length} 条，补充公司结果...`)
     for (const r of results) {
       if (leads.length >= count) break
       if (!r.title || !r.link) continue
@@ -378,6 +395,10 @@ export async function searchRealLeads(params) {
       const companyName = extractCompanyFromResult(r.title, r.link)
       if (excludedSet.has(companyName.toLowerCase())) continue
       if (leads.some(l => l.company.toLowerCase() === companyName.toLowerCase())) continue
+
+      // 排除平台结果
+      const url = (r.link || '').toLowerCase()
+      if (EXCLUDED_PLATFORMS.some(d => url.includes(d))) continue
 
       // 排除纯零售/百科结果
       const text = (r.title + ' ' + (r.snippet || '')).toLowerCase()

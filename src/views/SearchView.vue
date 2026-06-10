@@ -86,9 +86,12 @@
           <div v-for="(item, index) in displayResults" :key="item.company + '-' + index" class="result-card">
             <div class="result-header">
               <h3>{{ item.company }}</h3>
-              <span :class="['region-badge', `badge-${item.region || 'na'}`]">
-                {{ $t('regions.' + (item.region || 'na')) }}
-              </span>
+              <div class="header-badges">
+                <span :class="['region-badge', `badge-${item.region || 'na'}`]">
+                  {{ $t('regions.' + (item.region || 'na')) }}
+                </span>
+                <span v-if="item._isInquiry" class="time-badge">🕐 {{ $t('search.recentInquiry') || 'Recent' }}</span>
+              </div>
             </div>
             <p class="result-desc">{{ item.desc }}</p>
 
@@ -721,6 +724,15 @@ async function copyAnalysis() {
   padding: 2px 8px;
   border-radius: 12px;
   margin-top: 4px;
+}
+.time-badge {
+  display: inline-block;
+  font-size: 11px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 6px;
 }
 
 .result-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
