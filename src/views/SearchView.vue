@@ -356,22 +356,22 @@ async function doSearch() {
     isValidating.value = false
   } catch (err) {
     console.error('Search failed:', err)
-    // 检测 SerpAPI 额度用尽（仅匹配真正的配额错误，避免误判网络超时/其他错误）
+    // 仅在 SerpAPI 明确返回 402（余额不足）或明确的"额度用尽"消息时弹配额弹窗
+    // 其他所有错误（网络失败、解析错误、空结果等）一律用 alert 提示
     const msg = (err.message || '').toLowerCase()
-    const isQuota = (
+    const isRealQuotaExhausted = (
+      // HTTP 402 = Payment Required（SerpAPI 余额不足）
+      msg.includes('http 402') ||
+      // SerpAPI 官方返回的额度耗尽消息
       msg.includes('run out of searches') ||
       msg.includes('your account has run out') ||
-      msg.includes('you have exceeded') ||
-      msg.includes('serpapi_empty') ||
-      msg.includes('account is out') ||
-      msg.includes('quota exceeded') ||
-      msg.includes('payment required') ||
-      // SerpAPI 返回 402 表示余额不足
-      (err.message && err.message.includes('HTTP 402'))
+      // 非常明确的 payment/quota 关键词
+      (msg.includes('payment required') && msg.includes('serpapi'))
     )
-    if (isQuota) {
+    if (isRealQuotaExhausted) {
       showQuotaModal.value = true
     } else {
+      // 所有其他错误（包括空结果、网络问题、NativeHttp 问题等）
       alert(err.message || 'Search failed')
     }
     // 退还积分
@@ -441,7 +441,19 @@ async function nextPage() {
     }
   } catch (err) {
     console.error('Next page search failed:', err)
-    alert(err.message || 'Search failed')
+    // 翻页同样只对真正的 402 额度错误弹配额弹窗
+    const msg = (err.message || '').toLowerCase()
+    const isRealQuotaExhausted = (
+      msg.includes('http 402') ||
+      msg.includes('run out of searches') ||
+      msg.includes('your account has run out') ||
+      (msg.includes('payment required') && msg.includes('serpapi'))
+    )
+    if (isRealQuotaExhausted) {
+      showQuotaModal.value = true
+    } else {
+      alert(err.message || 'Search failed')
+    }
     // Refund
     credits.balance += 2
     credits.totalUsed -= 2

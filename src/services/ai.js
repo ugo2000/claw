@@ -407,15 +407,24 @@ Description: ${lead.desc}`,
 /**
  * 统一 lead 生成入口
  * 仅使用 SerpAPI（真实 Google 搜索结果），不降级到 AI 生成
- * SerpAPI 失败时直接抛出错误，由 UI 层处理
+ *
+ * 注意：返回空 leads 不等于"额度用尽"！
+ *   - 空结果可能原因：关键词无匹配、过滤条件太严格、SerpAPI 确实返回了 0 条 organic_results
+ *   - 真正的额度用尽由 serpapi.js 通过 HTTP 402 / 明确的错误消息判断
+ *   - 此函数只负责透传数据，不做"空结果=额度用尽"的错误推断
  */
 export async function generateLeads(params) {
-  const result = await searchRealLeads(params)
-  if (!result || !result.leads || result.leads.length === 0) {
-    throw new Error('SERPAPI_EMPTY: SerpAPI 未返回有效结果，可能额度已用尽')
+  try {
+    const result = await searchRealLeads(params)
+    console.log(`[generateLeads] 使用 SerpAPI 真实数据: ${result?.leads?.length || 0} 条`)
+    // 返回结果（即使为空也返回，让 UI 层显示"无结果"而非弹"额度用尽"）
+    return result || { leads: [], usage: { source: 'serpapi', count: 0 } }
+  } catch (err) {
+    // serpapi.js 抛出的网络/HTTP 错误直接透传给 UI 层处理
+    // 不要在此处包装成 SERPAPI_ERROR，让 UI 能区分真正的额度错误和其他错误
+    console.error('[generateLeads] searchRealLeads 失败:', err.message)
+    throw err
   }
-  console.log(`[generateLeads] 使用 SerpAPI 真实数据: ${result.leads.length} 条`)
-  return result
 }
 
 export default {
