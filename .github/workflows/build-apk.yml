@@ -65,6 +65,35 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Register NativeHttp plugin in capacitor.plugins.json
+        run: |
+          python3 - << 'PYEOF'
+          import json, os
+
+          PLUGINS_FILE = "android/app/src/main/assets/capacitor.plugins.json"
+          os.makedirs(os.path.dirname(PLUGINS_FILE), exist_ok=True)
+
+          # Read existing plugins
+          if os.path.exists(PLUGINS_FILE):
+              with open(PLUGINS_FILE, "r") as f:
+                  plugins = json.load(f)
+          else:
+              plugins = []
+
+          # Check if NativeHttp is already registered
+          exists = any(p.get("pkg") == "NativeHttp" for p in plugins)
+          if not exists:
+              plugins.append({
+                  "pkg": "NativeHttp",
+                  "classpath": "com.ugoclaw.app.plugins.NativeHttp"
+              })
+              with open(PLUGINS_FILE, "w") as f:
+                  json.dump(plugins, f, indent=2)
+              print("Added NativeHttp to capacitor.plugins.json")
+          else:
+              print("NativeHttp already in capacitor.plugins.json")
+          PYEOF
+
       - name: Inject NativeHttp plugin (Android)
         shell: bash
         run: |
