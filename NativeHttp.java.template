@@ -1,0 +1,99 @@
+package com.ugoclaw.app.plugins;
+
+import android.util.Log;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.PluginMethod;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Iterator;
+import java.util.concurrent.Executors;
+
+@CapacitorPlugin(name = "NativeHttp")
+public class NativeHttp extends Plugin {
+
+    private static final String TAG = "NativeHttp";
+
+    @PluginMethod
+    public void request(PluginCall call) {
+        String urlStr = call.getString("url");
+        String method = call.getString("method", "GET");
+        JSObject headersObj = call.getObject("headers", new JSObject());
+        String body = call.getString("body");
+
+        if (urlStr == null || urlStr.isEmpty()) {
+            call.reject("URL is required");
+            return;
+        }
+
+        Executors.newSingleThreadExecutor().execute(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod(method);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                conn.setInstanceFollowRedirects(true);
+
+                // Set headers (Iterator, not for-each)
+                Iterator<String> it = headersObj.keys();
+                while (it.hasNext()) {
+                    String key = it.next();
+                    conn.setRequestProperty(key, headersObj.getString(key));
+                }
+
+                // Set body for POST/PUT
+                if (body != null && (method.equalsIgnoreCase("POST") || method.equalsIgnoreCase("PUT"))) {
+                    conn.setDoOutput(true);
+                    conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                    try (DataOutputStream os = new DataOutputStream(conn.getOutputStream())) {
+                        os.write(body.getBytes("UTF-8"));
+                        os.flush();
+                    }
+                }
+
+                int status = conn.getResponseCode();
+
+                // Read response
+                InputStream is = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                StringBuilder response = new StringBuilder();
+                if (is != null) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    reader.close();
+                }
+
+                JSObject result = new JSObject();
+                result.put("status", status);
+                result.put("body", response.toString());
+                result.put("ok", status >= 200 && status < 300);
+
+                Log.d(TAG, "Request OK: " + urlStr + " → HTTP " + status + " (" + response.length() + " bytes)");
+                call.resolve(result);
+
+            } catch (Exception e) {
+                Log.e(TAG, "Request failed: " + urlStr, e);
+                JSObject err = new JSObject();
+                err.put("error", e.getClass().getSimpleName());
+                err.put("message", e.getMessage());
+                err.put("detail", e.toString());
+                call.reject(e.getMessage(), err);
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        });
+    }
+}
