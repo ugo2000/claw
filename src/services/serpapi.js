@@ -69,13 +69,6 @@ function buildSearchQuery(keyword, region = '') {
   return query
 }
 
-  if (region) {
-    query += ` ${region}`
-  }
-
-  return query
-}
-
 /**
  * 将 region 缩写扩展为搜索词
  */
