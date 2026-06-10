@@ -4,8 +4,8 @@ import android.util.Log;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import com.getcapacitor.annotation.PluginMethod;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -43,11 +43,13 @@ public class NativeHttp extends Plugin {
                 conn.setReadTimeout(30000);
                 conn.setInstanceFollowRedirects(true);
 
-                // Set headers (Iterator, not for-each)
-                Iterator<String> it = headersObj.keys();
-                while (it.hasNext()) {
-                    String key = it.next();
-                    conn.setRequestProperty(key, headersObj.getString(key));
+                // Set headers (must use Iterator, not for-each)
+                if (headersObj != null) {
+                    Iterator<String> it = headersObj.keys();
+                    while (it.hasNext()) {
+                        String key = it.next();
+                        conn.setRequestProperty(key, headersObj.getString(key));
+                    }
                 }
 
                 // Set body for POST/PUT
@@ -79,7 +81,7 @@ public class NativeHttp extends Plugin {
                 result.put("body", response.toString());
                 result.put("ok", status >= 200 && status < 300);
 
-                Log.d(TAG, "Request OK: " + urlStr + " → HTTP " + status + " (" + response.length() + " bytes)");
+                Log.d(TAG, "Request OK: " + urlStr + " HTTP " + status + " (" + response.length() + " bytes)");
                 call.resolve(result);
 
             } catch (Exception e) {
