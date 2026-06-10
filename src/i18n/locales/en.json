@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "Claw",
-    "tagline": "AI-Powered Client Hunter",
+    "name": "UgoClaw",
+    "tagline": "AI-Powered Foreign Trade Client Hunter",
     "loading": "Loading..."
   },
   "nav": {
@@ -54,17 +54,17 @@
     "noActivity": "No recent activity yet"
   },
   "search": {
-    "title": "Find Potential Clients",
-    "subtitle": "AI-powered lead generation — enter keywords and let AI find buyers for you",
-    "keywordPlaceholder": "e.g. LED lighting distributor in Germany",
+    "title": "Find Real Inquiries",
+    "subtitle": "Search real buyer inquiries/RFQs/sourcing requests — enter product name to find buyers who are actively purchasing",
+    "keywordPlaceholder": "e.g. LED lights, textile machinery, building materials...",
     "regionLabel": "Region",
     "allRegions": "All Regions",
     "industryLabel": "Industry",
     "allIndustries": "All Industries",
     "searchBtn": "Search Leads",
     "costInfo": "(2 credits per search)",
-    "resultCount": "{count} leads found for: \"{query}\"",
-    "noResults": "Try different keywords or adjust filters",
+    "resultCount": "{count} inquiries found for: \"{query}\"",
+    "noResults": "No inquiries found. Try different product keywords",
     "matchScore": "Match {score}%",
     "aiAnalyze": "AI Analysis",
     "analyzing": "Analyzing...",
@@ -106,9 +106,23 @@
     "emailTipChecking": "🔄 Verifying email...",
     "sourceReal": "🔍 Real Search",
     "sourceAi": "🤖 AI Generated",
+    "sourceInquiry": "📋 Real Inquiry",
     "quotaTitle": "Search Quota Exhausted",
     "quotaText": "SerpAPI search quota exhausted. Please contact us to upgrade!",
     "quotaClose": "Got it"
+  },
+  "regions": {
+    "na": "North America",
+    "eu": "Europe",
+    "sea": "Southeast Asia",
+    "me": "Middle East",
+    "latam": "Latin America",
+    "africa": "Africa"
+  },
+  "inquiry": {
+    "product": "Inquiry Product",
+    "quantity": "Quantity",
+    "budget": "Budget"
   },
   "email": {
     "title": "AI Email Generator",

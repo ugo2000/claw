@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "猎客",
-    "tagline": "AI 驱动的客户开发工具",
+    "name": "贸虾",
+    "tagline": "AI 驱动的外贸客户开发工具",
     "loading": "加载中..."
   },
   "nav": {
@@ -54,17 +54,17 @@
     "noActivity": "暂无动态"
   },
   "search": {
-    "title": "寻找潜在客户",
-    "subtitle": "AI 智能线索生成 — 输入关键词，让 AI 帮你找到买家",
-    "keywordPlaceholder": "例如：德国 LED 照明分销商",
+    "title": "寻找真实询盘",
+    "subtitle": "搜索真实买家询盘/RFQ/采购需求 — 输入产品名，找到正在求购的买家",
+    "keywordPlaceholder": "例如：LED灯、纺织机械、建材...",
     "regionLabel": "地区",
     "allRegions": "全部地区",
     "industryLabel": "行业",
     "allIndustries": "全部行业",
     "searchBtn": "开始搜索",
     "costInfo": "（每次消耗 2 积分）",
-    "resultCount": "为「{query}」找到 {count} 个潜在客户",
-    "noResults": "试试不同的关键词或调整筛选条件",
+    "resultCount": "为「{query}」找到 {count} 个询盘",
+    "noResults": "未找到相关询盘，试试不同的产品关键词",
     "matchScore": "匹配度 {score}%",
     "aiAnalyze": "AI 分析",
     "analyzing": "分析中...",
@@ -106,9 +106,23 @@
     "emailTipChecking": "🔄 正在验证邮箱...",
     "sourceReal": "🔍 真实搜索",
     "sourceAi": "🤖 AI生成",
+    "sourceInquiry": "📋 真实询盘",
     "quotaTitle": "搜索额度已用尽",
     "quotaText": "SerpAPI 搜索额度已用尽，请联系我们升级服务！",
     "quotaClose": "知道了"
+  },
+  "regions": {
+    "na": "北美",
+    "eu": "欧洲",
+    "sea": "东南亚",
+    "me": "中东",
+    "latam": "拉美",
+    "africa": "非洲"
+  },
+  "inquiry": {
+    "product": "询盘产品",
+    "quantity": "数量",
+    "budget": "预算"
   },
   "email": {
     "title": "AI 开发信生成",

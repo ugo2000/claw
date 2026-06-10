@@ -87,10 +87,28 @@
             <div class="result-header">
               <h3>{{ item.company }}</h3>
               <span :class="['region-badge', `badge-${item.region || 'na'}`]">
-                {{ (item.country && tRegion(item.country)) || item.region || '--' }}
+                {{ $t('regions.' + (item.region || 'na')) }}
               </span>
             </div>
             <p class="result-desc">{{ item.desc }}</p>
+
+            <!-- 询盘详情（仅询盘结果显示） -->
+            <div v-if="item._isInquiry" class="inquiry-details">
+              <div v-if="item.inquiryProduct" class="inquiry-row">
+                <span class="inquiry-label">📦 {{ $t('search.inquiry.product') }}：</span>
+                <span class="inquiry-value">{{ item.inquiryProduct }}</span>
+              </div>
+              <div v-if="item.inquiryQuantity" class="inquiry-row">
+                <span class="inquiry-label">🔢 {{ $t('search.inquiry.quantity') }}：</span>
+                <span class="inquiry-value">{{ item.inquiryQuantity }}</span>
+              </div>
+              <div v-if="item.inquiryBudget" class="inquiry-row">
+                <span class="inquiry-label">💰 {{ $t('search.inquiry.budget') }}：</span>
+                <span class="inquiry-value">{{ item.inquiryBudget }}</span>
+              </div>
+              <div v-if="item._source === 'serpapi_inquiry'" class="inquiry-badge">🔍 {{ $t('search.sourceInquiry') || 'Real Inquiry' }}</div>
+            </div>
+
             <div class="result-meta">
               <span v-if="item.industry" class="meta-tag">{{ item.industry }}</span>
               <a
@@ -275,20 +293,10 @@ const displayResults = computed(() => {
   )
 })
 
-// Region name mapping
-function tRegion(code) {
-  const map = {
-    NA: 'North America',
-    EU: 'Europe',
-    SEA: 'SE Asia',
-    ME: 'Middle East',
-    LATAM: 'LatAm',
-    AF: 'Africa',
-  }
-  return map[code] || code
-}
+// Region name mapping — 已废弃，改用 $t('regions.' + region)
+// function tRegion(code) { ... }
 
-// Load persisted state on mount
+// 询盘来源标识（替换原来的 region 显示）
 onMounted(() => {
   keyword.value = searchStore.keyword
   region.value = searchStore.region
@@ -682,6 +690,39 @@ async function copyAnalysis() {
 .badge-latam { background: #f3e8ff; color: #7c3aed; }
 .badge-africa { background: #ffe4cc; color: #c2410c; }
 .result-desc { font-size: 13px; color: #6b7280; line-height: 1.5; margin: 0 0 8px; }
+
+/* 询盘详情 */
+.inquiry-details {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.inquiry-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.inquiry-label {
+  color: #0369a1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.inquiry-value {
+  color: #0c4a6;
+}
+.inquiry-badge {
+  display: inline-block;
+  font-size: 11px;
+  background: #dcfce7;
+  color: #15803d;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
 .result-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .meta-tag {
   font-size: 11px; background: #f3f4f6; color: #374151;
