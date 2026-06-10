@@ -169,12 +169,20 @@ export async function searchRealLeads(params) {
   // 使用 nativeFetch（Capacitor App 走 Java 原生，浏览器/dev 走原生 fetch）
   const response = await nativeFetch(fetchUrl)
   if (!response.ok) {
-    throw new Error(`SerpAPI 错误: HTTP ${response.status}`)
+    const status = response.status
+    if (status === 402 || status === 429) {
+      // 402 Payment Required = account out of credits
+      // 429 Too Many Requests = rate limit (different from quota exhausted)
+      const body = await response.text().catch(() => '')
+      throw new Error(`HTTP ${status}: ${body || 'SerpAPI quota exceeded'}`)
+    }
+    throw new Error(`SerpAPI 错误: HTTP ${status}`)
   }
 
   const data = await response.json()
 
   if (data.error) {
+    // SerpAPI 明确的配额/账号错误消息
     throw new Error(`SerpAPI: ${data.error}`)
   }
 

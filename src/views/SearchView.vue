@@ -356,15 +356,18 @@ async function doSearch() {
     isValidating.value = false
   } catch (err) {
     console.error('Search failed:', err)
-    // 检测 SerpAPI 额度用尽
-    const isQuota = err.message && (
-      err.message.includes('SERPAPI_EMPTY') ||
-      err.message.includes('quota') ||
-      err.message.includes('额度') ||
-      err.message.includes('exhausted') ||
-      err.message.includes('limit') ||
-      err.message.includes('429') ||
-      err.message.includes('402')
+    // 检测 SerpAPI 额度用尽（仅匹配真正的配额错误，避免误判网络超时/其他错误）
+    const msg = (err.message || '').toLowerCase()
+    const isQuota = (
+      msg.includes('run out of searches') ||
+      msg.includes('your account has run out') ||
+      msg.includes('you have exceeded') ||
+      msg.includes('serpapi_empty') ||
+      msg.includes('account is out') ||
+      msg.includes('quota exceeded') ||
+      msg.includes('payment required') ||
+      // SerpAPI 返回 402 表示余额不足
+      (err.message && err.message.includes('HTTP 402'))
     )
     if (isQuota) {
       showQuotaModal.value = true
