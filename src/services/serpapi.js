@@ -18,15 +18,14 @@ const SERP_BASE_URL = 'https://serpapi.com/search'
 import { nativeFetch } from './nativeHttp.js'
 
 /**
- * 构造搜索查询 —— 重点搜索询盘/RFQ 页面，而非公司首页
+ * 构造搜索查询 —— 重点搜索真实买家询盘，排除 B2B 平台聚合页
  *
- * 策略：用 OR 覆盖多种询盘表达
- *   "want to buy"  OR "inquiry" OR "RFQ" OR "sourcing" OR "buying request"
- * + 用户关键词
- * + 地区
+ * 搜索策略：
+ *   1. 用 Google 搜索含询盘关键词的页面
+ *   2. 用 -site: 排除 B2B 平台（Alibaba/IndiaMART 等）
+ *   3. 优先返回真实买家自己的页面（公司采购页、论坛帖、LinkedIn 动态）
  */
 function buildSearchQuery(keyword, region = '') {
-  // 确保关键词是英文（SerpAPI Google 搜索效果好）
   const kw = keyword.trim()
 
   // 询盘相关词（Google 支持 OR，必须大写）
@@ -39,10 +38,36 @@ function buildSearchQuery(keyword, region = '') {
     '"procurement"',
     '"purchase"',
     '"import"',
+    '"looking for supplier"',
+    '"need to buy"',
+    '"seeking vendor"',
   ].join(' OR ')
 
-  // 构造查询：询盘词 和 产品词 都要出现
-  let query = `(${inquiryTerms}) "${kw}"`
+  // 排除 B2B 平台（这些平台的 RFQ 频道页不是真实买家询盘）
+  // 只用 -site:域名 排除整个域名下的 RFQ 聚合页
+  const excludeDomains = [
+    'alibaba.com',
+    'globalsources.com',
+    'made-in-china.com',
+    'indiamart.com',
+    'tradeindia.com',
+    'exportersindia.com',
+    'ec21.com',
+    'ecplaza.net',
+    'dhgate.com',
+    'thomasnet.com',
+    'justdial.com',
+  ].map(d => `-site:${d}`).join(' ')
+
+  // 构造查询：询盘词 + 产品词，排除平台
+  let query = `(${inquiryTerms}) "${kw}" ${excludeDomains}`
+
+  if (region) {
+    query += ` ${region}`
+  }
+
+  return query
+}
 
   if (region) {
     query += ` ${region}`
@@ -91,40 +116,80 @@ function inferEmails(domain) {
  * 优先：包含询盘关键词的结果
  * 排除：零售平台、百科、社交媒体积
  */
-function isInquiryResult(title, snippet) {
+function isInquiryResult(title, snippet, link) {
   const text = (title + ' ' + snippet).toLowerCase()
 
-  // 排除项：非商业/非询盘页面
+  // 排除项：非商业/非询盘页面（含平台聚合页）
   const exclude = [
     'wikipedia', 'amazon.', 'ebay.', 'made-in-china.',
     'youtube.com', 'facebook.com', 'linkedin.com/in/',
     'reddit', 'quora', 'pinterest',
     '.pdf', 'file:', 'javascript:',
-    // 排除纯公司官网首页（只有公司介绍，没有询盘内容）
     'home page', 'welcome to', 'about us', 'our company',
   ]
   if (exclude.some(e => text.includes(e))) return false
 
-  // 询盘/采购需求关键词（高分优先）
+  // ========== 硬性排除：B2B 平台聚合页（不是真实买家询盘）==========
+  // 这些页面是平台自己的求购频道，不是买家自己发的询盘帖
+  const url = (link || '').toLowerCase()
+  const platformPatterns = [
+    'alibaba.com/rfq', 'alibaba.com/inquiry', 'alibaba.com/buying-request', 'alibaba.com/sourcing',
+    'made-in-china.com/rfq', 'made-in-china.com/inquiry', 'made-in-china.com/buying-request',
+    'globalsources.com/rfq', 'globalsources.com/inquiry',
+    'indiamart.com/rfq', 'indiamart.com/buy-lead', 'indiamart.com/buying-request',
+    'tradeindia.com/rfq', 'tradeindia.com/buyer', 'tradeindia.com/buying-request',
+    'exportersindia.com/buy-lead', 'exportersindia.com/rfq',
+    'justdial.com/rfq', 'justdial.com/buy-requirement',
+    'ec21.com/rfq', 'ec21.com/buying-request',
+    'ecplaza.net/rfq', 'ecplaza.net/buying-request',
+    'thomasnet.com/rfq', 'thomasnet.com/buying-request',
+    'dhgate.com/rfq', 'dhgate.com/buying-request',
+  ]
+  for (const pattern of platformPatterns) {
+    if (url.includes(pattern)) return false
+  }
+
+  // 排除：平台域名 + RFQ/询盘路径（动态检测）
+  const platformDomains = [
+    'alibaba.com', 'globalsources.com', 'made-in-china.com',
+    'indiamart.com', 'tradeindia.com', 'exportersindia.com',
+    'ec21.com', 'ecplaza.net', 'dhgate.com', 'thomasnet.com',
+  ]
+  const platformRfqPaths = ['/rfq', '/inquiry', '/buying-request', '/sourcing', '/buy-lead', '/buyer', '/request-for-quotation']
+  for (const domain of platformDomains) {
+    if (url.includes(domain)) {
+      if (platformRfqPaths.some(p => url.includes(p))) return false
+      // 平台产品页也不是询盘
+      if (url.includes('/product/') || url.includes('/p/')) return false
+    }
+  }
+
+  // ========== 正向判断：真实询盘特征 ==========
   const inquiryKeywords = [
     'want to buy', 'looking for', 'inquiry', 'enquiry',
     'rfq', 'request for quotation', 'sourcing', 'procurement',
     'buying request', 'purchase', 'import', 'supplier wanted',
     'need to buy', 'interested in buying', 'quotation required',
     'send me your price', 'please quote', 'looking for supplier',
+    'we are looking to buy', 'we need', 'we are in need of',
+    'seeking supplier', 'sourcing for', 'procurement requirement',
+    'buyer looking for', 'purchase inquiry', 'buying inquiry',
   ]
   const hasInquiry = inquiryKeywords.some(e => text.includes(e))
+  if (hasInquiry) return true
 
-  // B2B 平台询盘页面特征
-  const b2bPlatforms = [
-    'alibaba.com/rfq', 'alibaba.com/inquiry', 'alibaba.com/buying-request',
-    'globalsources.com/rfq', 'globalsources.com/inquiry',
-    'tradeindia.com/rfq', 'indiamart.com',
-    'ec21.com', 'ecplaza.net',
+  // 正向判断：URL 路径含询盘特征（真实买家自己的页面，非平台）
+  const inquiryPaths = [
+    '/contact', '/inquiry', '/rfq', '/buying-request', '/sourcing',
+    '/procurement', '/purchase', '/quote', '/request-quote',
+    '/buy', '/order', '/get-quote', '/request-quote',
   ]
-  const isB2BInquiry = b2bPlatforms.some(e => text.includes(e))
+  const hasInquiryPath = inquiryPaths.some(p => url.includes(p))
+  // 但必须不是平台域名
+  const isPlatform = platformDomains.some(d => url.includes(d))
+  if (hasInquiryPath && !isPlatform) return true
 
-  return hasInquiry || isB2BInquiry
+  return false
 }
 
 /**
@@ -279,7 +344,7 @@ export async function searchRealLeads(params) {
     if (excludedSet.has(companyName.toLowerCase())) continue
 
     // 判断是否为询盘结果
-    if (!isInquiryResult(r.title, r.snippet || '')) continue
+    if (!isInquiryResult(r.title, r.snippet || '', r.link)) continue
 
     const domain = extractDomain(r.link)
     const country = guessCountry(r.link, r.snippet || '', region)
