@@ -2,36 +2,27 @@
 // Capacitor App 环境：走原生 Java HttpURLConnection（绕过 WebView 限制）
 // 浏览器 / dev 环境：走原生 window.fetch()
 
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor } from '@capacitor/core'
 
-let _NativeHttp = null
-
+/**
+ * 获取 NativeHttp 插件实例（已在 MainActivity.java 中注册）
+ */
 function getNativeHttp() {
-  if (_NativeHttp) return _NativeHttp
-
-  // Capacitor 5+：用 registerPlugin 注册原生插件
-  // 返回的是一个 Proxy，直接调用 request() 即可
-  try {
-    _NativeHttp = registerPlugin('NativeHttp')
-  } catch (e) {
-    // fallback：旧版 Capacitor
-    _NativeHttp = Capacitor.Plugins?.NativeHttp
-    if (!_NativeHttp) {
-      throw new Error('NativeHttp plugin not registered. Please rebuild the App.')
-    }
+  const plugin = window?.Capacitor?.Plugins?.NativeHttp
+  if (!plugin) {
+    throw new Error('NativeHttp plugin not found. Make sure registerPlugin(NativeHttp.class) is in MainActivity.java and the APK is rebuilt.')
   }
-
-  return _NativeHttp
+  return plugin
 }
 
 /**
- * 统一 HTTP 请求
+ * 统一 HTTP 请求，接口与 window.fetch 兼容
  * @param {string} url
  * @param {object} [opts] - { method, headers, body }
  * @returns {Promise<{ ok: boolean, status: number, json(): Promise, text(): Promise }>}
  */
 export async function nativeFetch(url, opts = {}) {
-  // 非原生环境：直接用 fetch
+  // 非原生环境：直接用浏览器 fetch
   if (!Capacitor.isNativePlatform()) {
     const response = await window.fetch(url, opts)
     const text = await response.text()
@@ -43,17 +34,19 @@ export async function nativeFetch(url, opts = {}) {
     }
   }
 
-  // Native App：通过 Capacitor 原生插件发请求
+  // Native App：通过原生插件发请求（绕过 WebView 的 CORS/SSL 限制）
   const NativeHttp = getNativeHttp()
 
   const method = (opts.method || 'GET').toUpperCase()
+
+  // 把 Headers 对象或普通 object 都转为普通 {}
   const headersObj = {}
   if (opts.headers) {
-    const entries = opts.headers.entries
-      ? opts.headers.entries()
-      : Object.entries(opts.headers)
-    for (const [k, v] of entries) {
-      headersObj[k] = String(v)
+    const src = opts.headers
+    if (typeof src.entries === 'function') {
+      for (const [k, v] of src.entries()) headersObj[k] = String(v)
+    } else {
+      for (const [k, v] of Object.entries(src)) headersObj[k] = String(v)
     }
   }
 
@@ -61,13 +54,12 @@ export async function nativeFetch(url, opts = {}) {
     url,
     method,
     headers: headersObj,
-    body: opts.body || null,
+    body: opts.body ?? null,
   })
 
-  // 把 Java 返回的结果包装成和 fetch() 兼容的形状
-  const responseBody = result.body || ''
+  const responseBody = result.body ?? ''
   return {
-    ok: result.ok,
+    ok: !!result.ok,
     status: result.status,
     json: async () => JSON.parse(responseBody),
     text: async () => responseBody,

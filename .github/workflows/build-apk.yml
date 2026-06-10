@@ -97,6 +97,7 @@ jobs:
       - name: Inject NativeHttp plugin (Android)
         shell: bash
         run: |
+          # 1. Copy NativeHttp.java
           PLUGIN_DIR="android/app/src/main/java/com/ugoclaw/app/plugins"
           mkdir -p "$PLUGIN_DIR"
           if [ -f "NativeHttp.java.template" ]; then
@@ -106,6 +107,26 @@ jobs:
             echo "ERROR: NativeHttp.java.template not found!"
             exit 1
           fi
+
+          # 2. Patch MainActivity.java to call registerPlugin(NativeHttp.class)
+          MAIN_ACTIVITY="android/app/src/main/java/com/ugoclaw/app/MainActivity.java"
+          cat > "$MAIN_ACTIVITY" << 'JAVA'
+          package com.ugoclaw.app;
+
+          import com.getcapacitor.BridgeActivity;
+          import com.ugoclaw.app.plugins.NativeHttp;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(android.os.Bundle savedInstanceState) {
+                  registerPlugin(NativeHttp.class);
+                  super.onCreate(savedInstanceState);
+              }
+          }
+          JAVA
+          # Remove leading whitespace caused by heredoc indentation
+          sed -i 's/^          //' "$MAIN_ACTIVITY"
+          echo "MainActivity.java patched with registerPlugin(NativeHttp.class)"
 
       - name: Apply Android network security config
         run: |
