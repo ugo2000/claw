@@ -19,11 +19,11 @@ const SERP_BASE_URL = 'https://serpapi.com/search'
 import { nativeFetch } from './nativeHttp.js'
 
 /**
- * 所有需要排除的 B2B 平台域名（完整列表，非常激进）
- * 这些平台的 RFQ/采购频道页不是真实买家询盘
+ * 所有需要排除的域名（用于 Google -site: 参数，只含域名不含路径）
+ * 这些网站不会有真实买家询盘
  */
-const EXCLUDED_PLATFORMS = [
-  // 中国平台
+const EXCLUDE_SITE_DOMAINS = [
+  // ========== B2B 平台（聚合页，不是真实买家询盘）==========
   'alibaba.com',
   '1688.com',
   'made-in-china.com',
@@ -32,29 +32,45 @@ const EXCLUDED_PLATFORMS = [
   '86trade.com',
   'chinax.com',
   'tradechina.com',
-  // 印度平台
   'indiamart.com',
   'tradeindia.com',
   'exportersindia.com',
   'justdial.com',
   'zaubacorp.com',
-  'machinediriectory.in',
+  'machinedirectory.in',
   'exporthub.com',
-  // 韩国/土耳其
   'ec21.com',
   'ecplaza.net',
   'tradekorea.com',
-  'thomasnet.com',
-  // 欧美平台
   'dhgate.com',
-  'thomasnet.com',
-  'kinja.com',
   'fiverr.com',
   'upwork.com',
-  // 综合性
-  'amazon.com/buyer',
-  'ebay.com/buyer',
-  'walmart.com/supplier',
+  'thomasnet.com',
+  // ========== 社交媒体（不会有询盘）==========
+  'facebook.com',
+  'reddit.com',
+  'quora.com',
+  'pinterest.com',
+  'twitter.com',
+  'x.com',
+  'instagram.com',
+  'tiktok.com',
+  'linkedin.com',
+  // ========== 非商业网站 ==========
+  'wikipedia.org',
+  'youtube.com',
+  'amazon.com',
+  'ebay.com',
+  'walmart.com',
+]
+
+/**
+ * URL 过滤：除了上述域名，还排除 LinkedIn 个人主页等含路径的模式
+ */
+const EXCLUDED_URL_PATTERNS = [
+  ...EXCLUDE_SITE_DOMAINS,
+  'linkedin.com/in/',
+  'linkedin.com/pub/',
 ]
 
 /**
@@ -85,8 +101,8 @@ function buildSearchQuery(keyword, region = '') {
     '"please quote"',
   ].join(' OR ')
 
-  // 构造 -site: 排除列表（非常激进）
-  const excludeSites = EXCLUDED_PLATFORMS.map(d => `-site:${d}`).join(' ')
+  // 构造 -site: 排除列表（仅用纯域名，不含路径）
+  const excludeSites = EXCLUDE_SITE_DOMAINS.map(d => `-site:${d}`).join(' ')
 
   // 构造查询
   let query = `(${inquiryTerms}) "${kw}" ${excludeSites}`
@@ -114,7 +130,7 @@ function expandRegion(region) {
 }
 
 /**
- * 提取域名（用于邮箱推断）
+ * 提取域名（用于公司名推断）
  */
 function extractDomain(url) {
   if (!url) return ''
@@ -125,34 +141,23 @@ function extractDomain(url) {
 }
 
 /**
- * 从域名推断可能的联系邮箱
- */
-function inferEmails(domain) {
-  if (!domain) return ['info@' + domain]
-  const prefixes = ['info', 'sales', 'contact', 'procurement', 'enquiry', 'export', 'import', 'trade', 'purchase', 'sourcing']
-  return prefixes.map(p => `${p}@${domain}`)
-}
-
-/**
  * 判断搜索结果是否为真实买家询盘（非平台聚合页）
  *
  * 核心原则：
- *   ✅ 真实买家页面：公司采购页、论坛询盘帖、LinkedIn 买家动态
- *   ❌ 平台聚合页：Alibaba RFQ 列表、IndiaMART 采购频道等
+ *   ✅ 真实买家页面：公司采购页、论坛询盘帖、含询盘关键词的页面
+ *   ❌ 平台聚合页/社交媒体：已被 EXCLUDED_URL_PATTERNS 硬性排除
  */
 function isInquiryResult(title, snippet, link) {
   const text = (title + ' ' + snippet).toLowerCase()
   const url = (link || '').toLowerCase()
 
-  // ========== 硬性排除：所有 B2B 平台域名 ==========
-  for (const domain of EXCLUDED_PLATFORMS) {
-    if (url.includes(domain)) return false
+  // ========== 硬性排除：所有 B2B 平台 + 社交媒体 + 非商业网站 ==========
+  for (const pattern of EXCLUDED_URL_PATTERNS) {
+    if (url.includes(pattern)) return false
   }
 
-  // 排除：非商业内容
+  // 排除：非商业内容（PDF、登录页等）
   const exclude = [
-    'wikipedia', 'youtube.com', 'facebook.com/in/', 'linkedin.com/in/',
-    'reddit.com', 'quora.com', 'pinterest.com',
     '.pdf', 'file:', 'javascript:',
     'home page', 'welcome to', 'about us', 'our company',
     'login', 'sign up', 'register', 'cart', 'checkout',
@@ -359,8 +364,8 @@ export async function searchRealLeads(params) {
     const country = guessCountry(r.link, r.snippet || '', region)
     const inquiry = extractInquiryDetails(r.title, r.snippet || '')
 
-    // 推断邮箱（优先用询盘中提取的，否则推断）
-    const bestEmail = inquiry.contact || inferEmails(domain)[0]
+    // 邮箱：只保留从网页内容中真实提取到的，不捏造
+    const bestEmail = inquiry.contact || ''
 
     leads.push({
       company: companyName,
@@ -368,7 +373,7 @@ export async function searchRealLeads(params) {
       region: region || 'na',
       industry: industry || '',
       desc: inquiry.inquiryText || r.snippet || `Inquiry found via Google search for "${keyword}"`,
-      score: Math.max(65, 95 - leads.length * 3), // 询盘结果分数更高
+      score: Math.max(65, 95 - leads.length * 3),
       email: bestEmail,
       website: r.link,
       // 询盘专属字段
@@ -398,7 +403,7 @@ export async function searchRealLeads(params) {
 
       // 排除平台结果
       const url = (r.link || '').toLowerCase()
-      if (EXCLUDED_PLATFORMS.some(d => url.includes(d))) continue
+      if (EXCLUDED_URL_PATTERNS.some(d => url.includes(d))) continue
 
       // 排除纯零售/百科结果
       const text = (r.title + ' ' + (r.snippet || '')).toLowerCase()
@@ -414,7 +419,7 @@ export async function searchRealLeads(params) {
         industry: industry || '',
         desc: r.snippet || `Company found via Google search for "${keyword}"`,
         score: Math.max(55, 80 - leads.length * 2),
-        email: inferEmails(domain)[0],
+        email: '', // 补充公司结果不捏造邮箱
         website: r.link,
         inquiryProduct: '',
         inquiryQuantity: '',
